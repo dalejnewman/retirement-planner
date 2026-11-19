@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.5.0';
-var RP_WEB_URL = ''; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
+var RP_VERSION = '1.5.1';
+var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.5.1', '2026-11-19', ['Web address for phones and tablets added to the Help guide and login screen']],
   ['1.5.0', '2026-11-19', ['Ready to use from a web address on phones and tablets', 'Names come from your plan file – no personal details are built into the planner', 'New plans start blank: enter names, birth dates and retirement dates when creating']],
   ['1.4.2', '2026-11-19', ['Phone file chooser asks for any file type', 'Login screen shows which browser or app the planner is running in, and warns if it is a built-in viewer']],
   ['1.4.1', '2026-11-19', ['The planner file name now ends with its version, e.g. Retirement-Planner-v1.4.1.html']],
@@ -1471,7 +1472,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         '<label class="row" style="font-size:14px"><input type="checkbox" id="rkOk" style="width:18px;height:18px"> I\'ve written it down</label>' +
         '<button class="btn primary" data-act="afterCreate">Save the plan file to OneDrive…</button>';
     }
-    h += '</div><div class="sec">Your figures are encrypted (AES-256) inside the plan file. Nothing is sent online – OneDrive only ever stores the locked file. ' + esc(pname('dale')) + ' (admin) can reset ' + esc(pname('sue')) + '\'s password; ' + esc(pname('dale')) + '\'s own access can be recovered only with the printed recovery key.</div><button class="btn" data-act="lockHelp" data-id="1" style="align-self:center">Help guide – how to get started</button><div style="text-align:center;font-size:12px;color:#B8C2CC">Retirement Planner v' + RP_VERSION + ' · ' + dfmt(RP_RELEASED) + '<br>Running in ' + esc(rpEnvironment().app) + ' on ' + esc(rpEnvironment().os) + '</div></div></div>';
+    h += '</div><div class="sec">Your figures are encrypted (AES-256) inside the plan file. Nothing is sent online – OneDrive only ever stores the locked file. ' + esc(pname('dale')) + ' (admin) can reset ' + esc(pname('sue')) + '\'s password; ' + esc(pname('dale')) + '\'s own access can be recovered only with the printed recovery key.</div><button class="btn" data-act="lockHelp" data-id="1" style="align-self:center">Help guide – how to get started</button>' + (RP_WEB_URL && location.protocol !== 'https:' ? '<div style="text-align:center;font-size:13px;color:#DCE3EA">On a phone or tablet? Use <a style="color:#8FB0F0" href="' + RP_WEB_URL + '">' + RP_WEB_URL.replace(/^https:\/\//, '') + '</a></div>' : '') + '<div style="text-align:center;font-size:12px;color:#B8C2CC">Retirement Planner v' + RP_VERSION + ' · ' + dfmt(RP_RELEASED) + '<br>Running in ' + esc(rpEnvironment().app) + ' on ' + esc(rpEnvironment().os) + '</div></div></div>';
     app.innerHTML = h;
     var pw = document.getElementById('pw'); if (pw) pw.focus();
   }
