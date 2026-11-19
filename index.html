@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.8.2';
+var RP_VERSION = '1.9.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.9.0', '2026-11-20', ['"Spending changes as we age" on Forecast & Scenarios: up to two steps, down or up, per scenario', 'Steps show as milestones and on the Dashboard']],
   ['1.8.2', '2026-11-20', ['Clearer "money runs out" wording on the Dashboard, split table and Forecast', 'Shared splits show your own share in your view ("% Sue" in Sue\'s view)', 'Defined benefit: estimate the multiple from years of service; Notes column labelled', 'Scenario ticks explained']],
   ['1.8.1', '2026-11-19', ['Tablets showing the desktop version of sites are now recognised as tablets (view only)', '"Editing on this device" setting on Users & passwords to override the automatic choice']],
   ['1.8.0', '2026-11-19', ['Phones and tablets are view only: change figures to try ideas, nothing is saved', '"Discard changes" puts the saved figures back', 'On a PC, if saving fails the planner offers to download your changes so nothing is lost']],
@@ -280,7 +281,9 @@ var RPE = (function () {
       mode: s.spendMode || plan.settings.spendMode || 'target',
       target: s.spendTarget != null ? s.spendTarget : plan.settings.spendTarget,
       split: s.splitPct != null ? s.splitPct : plan.settings.splitPct,
-      splitMode: s.splitMode || plan.settings.splitMode || 'percent'
+      splitMode: s.splitMode || plan.settings.splitMode || 'percent',
+      // optional 'spending changes as we age' steps, by the younger partner's age: {on, a1, p1, a2, p2} (p = -0.2 for 20% less)
+      steps: s.steps || plan.settings.spendSteps || null
     };
     return { A: A, P: P, cashOverride: cashOverride, superOverride: superOverride, spend: spend, stress: s.stress != null ? s.stress : 0, pooled: (s.pooled != null ? s.pooled : plan.settings.pooled) };
   }
@@ -387,6 +390,17 @@ var RPE = (function () {
         row.agePensionTest = assetRed >= incRed ? 'assets' : 'income';
       }
 
+      // spending steps (retirement spending only), by the younger partner's age
+      var yAge = Math.min(ages.dale, ages.sue), stepF = 1, St = E.spend.steps;
+      if (St && St.on) {
+        if (+St.a1 && yAge >= +St.a1) stepF *= 1 + (+St.p1 || 0);
+        if (+St.a2 && yAge >= +St.a2) stepF *= 1 + (+St.p2 || 0);
+        [[+St.a1, +St.p1], [+St.a2, +St.p2]].forEach(function (st) {
+          if (st[0] && st[1] && yAge === st[0] && !rows.some(function (r) { return Math.min(r.p.dale.age, r.p.sue.age) === st[0]; }))
+            row.events.push({ who: 'both', text: 'Spending ' + (st[1] < 0 ? 'down ' : 'up ') + Math.round(Math.abs(st[1]) * 100) + '% (age ' + st[0] + ')' });
+        });
+      }
+      row.stepF = stepF;
       who.forEach(function (w) {
         var s = S[w], age = ages[w], R = { age: age };
         var workFrac = ov(null, retire[w]);
@@ -462,9 +476,9 @@ var RPE = (function () {
           var sh = shareOf(e.owner, e.splitPct == null ? 50 : e.splitPct, w);
           if (!sh) return;
           var now = +e.yearly || 0, ret = (e.retire == null || e.retire === '') ? now : +e.retire;
-          spend += sh * (workFrac * now + (E.spend.mode === 'target' ? 0 : retFrac * ret)) * infl;
+          spend += sh * (workFrac * now + (E.spend.mode === 'target' ? 0 : retFrac * ret * stepF)) * infl;
         });
-        if (E.spend.mode === 'target') spend += retFrac * E.spend.target * (w === 'dale' ? splitPct / 100 : 1 - splitPct / 100) * infl;
+        if (E.spend.mode === 'target') spend += retFrac * E.spend.target * (w === 'dale' ? splitPct / 100 : 1 - splitPct / 100) * infl * stepF;
         var oneOff = 0;
         (plan.oneOffs || []).forEach(function (o) {
           var sh = shareOf(o.owner, o.splitPct == null ? 50 : o.splitPct, w);
@@ -875,6 +889,7 @@ var RP_HELP = [
 <li>Use the <b>Combined / {P1} / {P2}</b> switch (top right) to see the comparison, chart and year-by-year table for the household or for each of you. The person views show income, super drawdowns, Age Pension, tax, spending, balances and any top-ups between you.</li>
 <li><b>Base plan</b> is your real plan – changing it here changes the plan everywhere.</li>
 <li><b>+ New scenario</b> or the copy button makes a "what if" (e.g. <i>Retire at 58</i>, <i>Spend $140k</i>). Click its name to edit: retirement dates, spending, split, returns, inflation, and a <b>market fall</b> test in {P1}'s retirement year.</li>
+<li><b>Spending changes as we age:</b> tick it in the left panel and set up to two steps – e.g. from 75 spend 20% less (less travel), from 85 a further 10% less, or slide right to spend <i>more</i> for health costs. Ages follow the younger of you. Each scenario can have its own steps, so copy the Base plan and compare.</li>
 <li>The ticks only choose which <b>two</b> scenarios appear side by side in the comparison table. Scenarios never change your plan or the Dashboard – only the <b>Base plan</b> does. Delete any you don't need (e.g. the examples).</li>
 <li>The <b>year by year</b> table shows spending, tax, Age Pension and balances; red rows mean the money has run out.</li>
 <li><b>Export to Excel (CSV)</b> saves the year-by-year figures to open in Excel.</li>
@@ -1112,7 +1127,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       kpi('Net worth today', kM(nwv), S.view === 'household' ? esc(pname('dale')) + ' ' + kM(nw.dale) + ' · ' + esc(pname('sue')) + ' ' + kM(nw.sue) + dbNote : dbNote.replace(/^ \(|\)$/g, '')) +
       kpi(lastLab, lastMain, lastSub, true) +
       whoList().map(retTile).join('') +
-      kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
+      kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + (p.settings.spendSteps && p.settings.spendSteps.on && p.settings.spendMode === 'target' ? '<br>Later: ' + stepsText(p.settings.spendSteps, p.settings.spendTarget).replace(/^[^→]*→ /, '') : '') + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
       (S.view === 'household' ? kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) : kpi(esc(pname(S.view)) + "'s tax " + fy0.label, kM(S.view === 'dale' ? taxD : taxS), 'Effective rate ' + pct(fy0.p[S.view].tax.taxable > 0 ? fy0.p[S.view].taxPaid / fy0.p[S.view].tax.taxable : 0))) +
       '</div>';
     h += '<section class="card" aria-labelledby="chT"><div class="row"><h2 id="chT">Projected balances</h2><div class="legend">' +
@@ -1123,7 +1138,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     h += splitPanel();
     // milestones + separate vs pooled
     var ev = [];
-    base.rows.forEach(function (r) { r.events.forEach(function (e) { if (ev.length < 9 && (S.view === 'household' || e.who === S.view || e.who === 'both')) ev.push({ fy: r, e: e }); }); });
+    base.rows.forEach(function (r) { r.events.forEach(function (e) { if ((ev.length < 9 || /^Spending /.test(e.text)) && (S.view === 'household' || e.who === S.view || e.who === 'both')) ev.push({ fy: r, e: e }); }); });
     h += '<div class="grid2"><section class="card"><h2>Milestones</h2>' + ev.map(function (x) {
       return '<div class="ms"><b>' + esc(x.fy.label) + '</b><span>' + esc(x.e.text) + '</span></div>'; }).join('') + '</section>';
     var trans = 0, tf = { dale: 0, sue: 0 };
@@ -1353,9 +1368,18 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     ['inflation', 'Inflation', 'pct', 'assumptions.inflation', 0.01, 0.06, 0.0025],
     ['stress', 'Market fall in the year you\'ve both retired', 'pct', null, 0, 0.4, 0.05]
   ];
-  function baseNote() { var P = S.plan.people; return pname('dale') + ' retires ' + mfmt(P.dale.retireDate) + ' · ' + pname('sue') + ' ' + mfmt(P.sue.retireDate) + ' · ' + kM(S.plan.settings.spendTarget) + '/yr'; }
+  function baseNote() { var P = S.plan.people, st = S.plan.settings.spendSteps; return pname('dale') + ' retires ' + mfmt(P.dale.retireDate) + ' · ' + pname('sue') + ' ' + mfmt(P.sue.retireDate) + ' · ' + kM(S.plan.settings.spendTarget) + '/yr' + (st && st.on ? ', steps with age' : ''); }
   function scenById(id) { return S.plan.scenarios.filter(function (s) { return s.id === id; })[0]; }
-  function scenOverrides(sc) { var o = {}; if (sc.id === 'base') { if (sc.stress) o.stress = sc.stress; return o; } SF.forEach(function (f) { if (sc[f[0]] != null && sc[f[0]] !== '') o[f[0]] = sc[f[0]]; }); return o; }
+  function stepsOf(sc) { return (sc && sc.id !== 'base' && sc.steps) || S.plan.settings.spendSteps || { on: false, a1: 75, p1: -0.2, a2: 85, p2: 0 }; }
+  function setSteps(sc, st) { if (sc.id === 'base') S.plan.settings.spendSteps = st; else sc.steps = st; }
+  function stepsText(st, base) {
+    if (!st || !st.on) return '';
+    var f1 = 1 + (+st.p1 || 0), f2 = f1 * (1 + (+st.p2 || 0)), out = kM(base);
+    if (+st.p1) out += ' → ' + kM(base * f1) + ' from ' + st.a1;
+    if (+st.p2) out += ' → ' + kM(base * f2) + ' from ' + st.a2;
+    return out;
+  }
+  function scenOverrides(sc) { var o = {}; if (sc.id === 'base') { if (sc.stress) o.stress = sc.stress; return o; } if (sc.steps) o.steps = sc.steps; SF.forEach(function (f) { if (sc[f[0]] != null && sc[f[0]] !== '') o[f[0]] = sc[f[0]]; }); return o; }
   function scenValue(sc, f) { if (sc.id !== 'base' && sc[f[0]] != null && sc[f[0]] !== '') return sc[f[0]]; if (f[0] === 'stress') return sc.stress || 0; return getPath(f[3]); }
   function runScen(sc, pooled) { var o = scenOverrides(sc); o.pooled = pooled == null ? S.plan.settings.pooled : pooled; return RPE.project(S.plan, { today: C.today, scenario: o }); }
   function vForecast() {
@@ -1395,6 +1419,18 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         var disp = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%';
         return '<div class="slider"><label class="top2" for="' + id + '"><span>' + esc(lab) + '</span><span class="dale">' + disp + '</span></label><input id="' + id + '" type="range" min="' + f[4] + '" max="' + f[5] + '" step="' + f[6] + '" value="' + v + '" data-sf="' + f[0] + '"></div>';
       }).join('') +
+      (function () {
+        var st = stepsOf(sc), yn = S.plan.people.dale.dob > S.plan.people.sue.dob ? pname('dale') : pname('sue');
+        var sl = function (k, lab, min, max, step, val, fmt) { return '<div class="slider"><label class="top2" for="st_' + k + '"><span>' + lab + '</span><span class="dale">' + fmt(val) + '</span></label><input id="st_' + k + '" type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-step="' + k + '" data-fmt="' + (k[0] === 'p' ? 'pct' : 'age') + '"></div>'; };
+        var pf = function (v) { v = Math.round(v); return v === 0 ? 'no change' : (v > 0 ? '+' : '−') + Math.abs(v) + '%'; }, af = function (v) { return 'age ' + v; };
+        return '<div style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:12px">' +
+          '<label class="row" style="gap:8px;font-weight:600;font-size:14px;flex-wrap:nowrap"><input type="checkbox" data-step="on"' + (st.on ? ' checked' : '') + ' style="width:18px;height:18px">Spending changes as we age</label>' +
+          (st.on ? '<div class="hint">Retirement spending, by ' + esc(yn) + '\'s age (the younger of you). Slide left to spend less, right for more (e.g. health costs).</div>' +
+            sl('a1', 'Step 1 from', 65, 95, 1, st.a1 || 75, af) + sl('p1', 'Step 1 change', -50, 30, 5, Math.round((st.p1 || 0) * 100), pf) +
+            sl('a2', 'Step 2 from', 65, 100, 1, st.a2 || 85, af) + sl('p2', 'Step 2 change', -50, 30, 5, Math.round((st.p2 || 0) * 100), pf) +
+            (S.plan.settings.spendMode === 'target' ? '<div class="hint">' + stepsText(st, scenValue(sc, SF.filter(function (f) { return f[0] === 'spendTarget'; })[0])) + ' a year (today\'s $)</div>' : '')
+            : '<div class="hint">Off: retirement spending stays the same (rising with inflation) for life.</div>') + '</div>';
+      })() +
       (sc.id !== 'base' ? '<button class="btn" data-act="resetScen" data-id="' + sc.id + '">Reset to base plan values</button>' : '') + '</section>';
     // comparison
     var cmp = p.compare.map(scenById).filter(Boolean).slice(0, 2);
@@ -1699,10 +1735,10 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     snap: function () { var nw = RPE.netWorth(S.plan); var d = new Date().toISOString().slice(0, 10); S.plan.history = S.plan.history.filter(function (h) { return h.date !== d; }); S.plan.history.push({ date: d, dale: nw.dale + nw.joint / 2, sue: nw.sue + nw.joint / 2, total: nw.total }); markDirty(); render(); toast('Balances recorded for ' + dfmt(d)); },
     delSnap: function (id) { if (confirm('Delete this snapshot?')) { S.plan.history = S.plan.history.filter(function (h) { return h.date !== id; }); markDirty(); render(); } },
     newScen: function () { var s = { id: uid(), name: 'New scenario', note: '' }; S.plan.scenarios.push(s); S.scen = s.id; markDirty(); render(); },
-    copyScen: function (id) { var o = scenById(id), s = JSON.parse(JSON.stringify(o)); s.id = uid(); s.name = o.name + ' (copy)'; if (o.id === 'base') SF.forEach(function (f) { if (f[3]) s[f[0]] = getPath(f[3]); }); S.plan.scenarios.push(s); S.scen = s.id; markDirty(); render(); },
+    copyScen: function (id) { var o = scenById(id), s = JSON.parse(JSON.stringify(o)); s.id = uid(); s.name = o.name + ' (copy)'; if (o.id === 'base') { SF.forEach(function (f) { if (f[3]) s[f[0]] = getPath(f[3]); }); if (S.plan.settings.spendSteps) s.steps = JSON.parse(JSON.stringify(S.plan.settings.spendSteps)); } S.plan.scenarios.push(s); S.scen = s.id; markDirty(); render(); },
     delScen: function (id) { if (confirm('Delete this scenario?')) { S.plan.scenarios = S.plan.scenarios.filter(function (x) { return x.id !== id; }); S.plan.compare = S.plan.compare.filter(function (x) { return x !== id; }); if (S.scen === id) S.scen = 'base'; markDirty(); render(); } },
     pickScen: function (id) { S.scen = id; render(); },
-    resetScen: function (id) { var s = scenById(id); SF.forEach(function (f) { delete s[f[0]]; }); markDirty(); render(); },
+    resetScen: function (id) { var s = scenById(id); SF.forEach(function (f) { delete s[f[0]]; }); delete s.steps; markDirty(); render(); },
     cmp: function (id) { var c = S.plan.compare, i = c.indexOf(id); if (i >= 0) c.splice(i, 1); else { c.push(id); while (c.length > 2) c.shift(); } markDirty(); render(); },
     csv: function () {
       var sc = scenById(S.scen), r = runScen(sc), P = S.plan.people;
@@ -1782,6 +1818,11 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     }
     if (t.dataset.per) { var ex = S.plan.expenses.filter(function (x) { return x.id === t.dataset.id; })[0]; ex.yearly = Math.round(parseVal(t.value, 'money') * (+t.dataset.per) * 100) / 100; markDirty(); render(); return; }
     if (t.dataset.scen) { var sc = scenById(S.scen); sc[t.dataset.scen] = t.value; markDirty(); render(); return; }
+    if (t.dataset.step) {
+      var scS = scenById(S.scen), st = JSON.parse(JSON.stringify(stepsOf(scS))), k = t.dataset.step;
+      st[k] = k === 'on' ? t.checked : (k === 'p1' || k === 'p2') ? +t.value / 100 : +t.value;
+      setSteps(scS, st); markDirty(); render(); return;
+    }
     if (t.dataset.sf) {
       var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0], sc2 = scenById(S.scen);
       var val = f[2] === 'date' ? t.value : +t.value;
@@ -1792,6 +1833,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   });
   app.addEventListener('input', function (e) {
     var t = e.target;
+    if (t.dataset.step && t.type === 'range') { var lb = t.parentNode.querySelector('.top2 span:last-child'), v = +t.value; lb.textContent = t.dataset.fmt === 'pct' ? (v === 0 ? 'no change' : (v > 0 ? '+' : '−') + Math.abs(v) + '%') : 'age ' + v; }
     if (t.dataset.sf && t.type === 'range') { var lab = t.parentNode.querySelector('.top2 span:last-child'); var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0]; var v = +t.value; lab.textContent = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%'; }
   });
   app.addEventListener('input', function (e) {
