@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.8.0';
+var RP_VERSION = '1.8.1';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.8.1', '2026-11-19', ['Tablets showing the desktop version of sites are now recognised as tablets (view only)', '"Editing on this device" setting on Users & passwords to override the automatic choice']],
   ['1.8.0', '2026-11-19', ['Phones and tablets are view only: change figures to try ideas, nothing is saved', '"Discard changes" puts the saved figures back', 'On a PC, if saving fails the planner offers to download your changes so nothing is lost']],
   ['1.7.0', '2026-11-19', ['One retirement date per person (on Income & Tax) drives every screen; work income stops on it', 'Each cash account\'s interest rate is used every year; super accounts can have their own return', 'One-off costs: "Paid" tick so paid items aren\'t counted again', 'Tax card and milestones follow the Dale / Sue view', 'Dashboard shows a retirement card for each person', 'Sue\'s views show only her one-off costs, retirement line and her share of spending', 'One-off costs are set by financial year (fixes costs dated this year being missed)', 'Market-fall test applies in the year you\'ve both retired', 'Clearer wording: cash rate and super return are separate settings']],
   ['1.6.0', '2026-11-19', ['Optional "Keep me signed in on this device" – no password after a refresh', '"Continue as …" button and "Forget this device" on the login screen and Users & passwords', 'Changing a password signs out every remembered device']],
@@ -178,11 +179,18 @@ var RP_CHANGES = [
 ];
 function rpEnvironment() {
   var u = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
-  var os = /iPhone|iPad|iPod/.test(u) ? 'iPhone/iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : 'Unknown system';
+  var nav = typeof navigator !== 'undefined' ? navigator : {};
+  var touch = (nav.maxTouchPoints || 0) > 0;
+  var uad = nav.userAgentData && nav.userAgentData.platform;
+  // tablets often ask for the desktop version of sites: Android then says 'Linux', an iPad says 'Mac' – a touch screen gives them away
+  var android = /Android/.test(u) || uad === 'Android' || (/Linux/.test(u) && !/CrOS/.test(u) && touch);
+  var ios = /iPhone|iPad|iPod/.test(u) || (/Macintosh/.test(u) && (nav.maxTouchPoints || 0) > 1);
+  var phone = /iPhone|iPod/.test(u) || (/Android/.test(u) && /Mobile/.test(u));
+  var os = ios ? (/iPhone|iPod/.test(u) ? 'iPhone' : 'iPad') : android ? (phone ? 'Android phone' : 'Android tablet') : /CrOS/.test(u) ? 'Chromebook' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'Unknown system';
   var viewer = /; wv\)/.test(u) || /FBAN|FBAV|Instagram|Line\//.test(u) || (/iPhone|iPad/.test(u) && !/Safari\//.test(u));
   var app = /SamsungBrowser/.test(u) ? 'Samsung Internet' : /EdgA?\//.test(u) ? 'Edge' : /CriOS/.test(u) ? 'Chrome' : /FxiOS|Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Unknown app';
   if (viewer) app = 'a built-in viewer';
-  return { os: os, app: app, viewer: viewer, mobile: /Android|iPhone|iPad|iPod/.test(u) };
+  return { os: os, app: app, viewer: viewer, mobile: android || ios, phone: phone, tablet: (android || ios) && !phone };
 }
 function rpCompareVersions(a, b) {
   var x = String(a || '0').split('.').map(Number), y = String(b || '0').split('.').map(Number);
@@ -908,7 +916,7 @@ var RP_HELP = [
 <li><b>"Open Retirement-Plan.rplan" doesn't work</b> – use <b>Choose plan file…</b> and pick it from the OneDrive folder.</li>
 <li><b>OneDrive shows a conflict copy</b> (e.g. <i>Retirement-Plan-DESKTOP.rplan</i>) – you both saved at once. Open each, keep the right one, delete the other.</li>
 <li><b>Figures look odd</b> – check retirement dates, the "In retirement" column (blank vs 0), and the Assumptions page.</li>
-<li><b>Phones and tablets are view only.</b> You can change any figure – budget, dates, sliders – to try ideas, but nothing is saved; the top bar says <i>Trying changes – not saved</i> and <b>Discard changes</b> puts the saved figures back. Make permanent changes on a PC.</li>
+<li><b>Phones and tablets are view only.</b> You can change any figure – budget, dates, sliders – to try ideas, but nothing is saved; the top bar says <i>Trying changes – not saved</i> and <b>Discard changes</b> puts the saved figures back. Make permanent changes on a PC. If a tablet is ever treated as a PC (or the other way round), change <i>Users &amp; passwords › This device › Editing on this device</i>.</li>
 <li><b>Phones and tablets</b> (iPhone, iPad, Android, Samsung tablets) – use the <b>web address</b>: {URL}. Opening the planner <i>file</i> on a phone or tablet doesn't work: it shows as a preview with dead buttons, or every file is greyed out when choosing the plan.
   <ul><li>Open the web address in Chrome or Safari, tap <b>Choose plan file…</b>, then pick the plan file from <b>OneDrive</b> (tap ☰ or <i>Browse</i> if it isn't listed).</li>
   <li><b>Add to home screen</b> (Safari: Share › Add to Home Screen; Chrome: ⋮ › Add to home screen) to open it like an app.</li>
@@ -943,8 +951,11 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     scen: 'base', taxFY: null, lastSaved: null, lockMins: 15, stage: 'file', createMode: false, recovery: false, err: '' };
   var app = document.getElementById('app');
   // Phones and tablets can't save back into OneDrive from a web page, so they are view-only: changes are for trying ideas and are never saved.
-  var VIEW_ONLY = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var ENV = rpEnvironment();
+  var DEVICE_MODE = 'auto'; try { DEVICE_MODE = localStorage.getItem('rp-device-mode') || 'auto'; } catch (e) {}
+  var VIEW_ONLY = DEVICE_MODE === 'view' ? true : DEVICE_MODE === 'edit' ? false : ENV.mobile;
   if (/[?&]edit=1/.test(location.search)) VIEW_ONLY = false;
+  if (/[?&]view=1/.test(location.search)) VIEW_ONLY = true;
   var C = null; // computed results for current render
 
   /* ---------- helpers ---------- */
@@ -1048,7 +1059,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       '<button class="tbtn" data-act="lock" aria-label="Lock plan" title="Lock">' + ICON.lock + '</button></header>';
     h += '<div class="wrap"><nav class="side" aria-label="Sections">' + tabs.map(function (t) {
       return '<button data-act="tab" data-id="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + esc(t[1]) + '</button>'; }).join('') + '</nav><main>';
-    if (VIEW_ONLY) h += '<div class="note" role="status"><b>View only on this ' + (/iPad|Tablet/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) || (/Android/i.test(navigator.userAgent) && !/Mobile/i.test(navigator.userAgent)) ? 'tablet' : 'phone') + '.</b> Change any figure to try ideas – nothing is saved' + (S.dirty ? '. <button class="btn link" data-act="discard" style="padding:0;min-height:0">Discard changes</button> to go back to the saved plan.' : ', and the saved plan stays as it is.') + ' Make permanent changes on a PC.</div>';
+    if (VIEW_ONLY) h += '<div class="note" role="status"><b>View only on this ' + (ENV.phone ? 'phone' : ENV.tablet ? 'tablet' : 'device') + '.</b> Change any figure to try ideas – nothing is saved' + (S.dirty ? '. <button class="btn link" data-act="discard" style="padding:0;min-height:0">Discard changes</button> to go back to the saved plan.' : ', and the saved plan stays as it is.') + ' Make permanent changes on a PC.</div>';
     h += ({ dashboard: vDashboard, budget: vBudget, tax: vTax, savings: vSavings, forecast: vForecast, assumptions: vAssumptions, users: vUsers, help: vHelp })[S.tab]();
     h += '</main></div>';
     app.innerHTML = h;
@@ -1479,6 +1490,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     h += '<section class="card"><h2>This device</h2>' + (di && di.valid
       ? '<div>Kept signed in as <b>' + esc(pname(di.who)) + '</b> since ' + new Date(di.at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) + '. Refreshing or reopening only needs the plan file – no password.</div><button class="btn danger" data-act="forgetDev" style="align-self:flex-start">Forget this device</button>'
       : '<div class="sub">This device asks for the password each time.</div><button class="btn" data-act="keepDev" style="align-self:flex-start">Keep me signed in on this device</button>') +
+      '<div class="row" style="border-top:1px solid var(--line);padding-top:12px"><div class="field" style="flex:1 1 220px"><label for="devMode">Editing on this device</label><span class="hint">Detected: ' + esc(ENV.os) + ' – ' + (ENV.mobile ? 'view only' : 'can save') + '. Phones and tablets can\'t save into OneDrive.</span></div><select class="in w200" id="devMode" data-act="devMode"><option value="auto"' + (DEVICE_MODE === 'auto' ? ' selected' : '') + '>Automatic (' + (ENV.mobile ? 'view only' : 'edit and save') + ')</option><option value="view"' + (DEVICE_MODE === 'view' ? ' selected' : '') + '>Always view only</option><option value="edit"' + (DEVICE_MODE === 'edit' ? ' selected' : '') + '>Edit and save (PCs only)</option></select></div>' +
       '<div class="hint">Use only on your own devices with a screen lock. Your password is never stored – changing it signs out every remembered device.</div></section>';
     h += '<section class="card"><h2>This plan file</h2><table><tbody><tr><td>File</td><td>' + esc(Files.name()) + '</td></tr><tr><td>Last saved</td><td>' + (m.savedAt ? new Date(m.savedAt).toLocaleString('en-AU') + ' by ' + esc(m.savedBy === 'recovery' ? 'recovery key' : pname(m.savedBy)) : '–') + '</td></tr><tr><td>Planner version</td><td>v' + RP_VERSION + ' (' + dfmt(RP_RELEASED) + ')</td></tr><tr><td>Plan last saved with</td><td>' + (m.appVersion ? 'v' + esc(m.appVersion) : 'v1.3.1 or earlier') + '</td></tr><tr><td>Times saved</td><td>' + (m.rev || 1) + '</td></tr><tr><td>Encryption</td><td>AES-256-GCM, keys from your password (PBKDF2, ' + Vault.ITER.toLocaleString() + ' rounds)</td></tr><tr><td>Auto-lock</td><td><select class="in w140" data-act="lockMins" aria-label="Auto-lock">' + [5, 15, 30, 60].map(function (n) { return '<option value="' + n + '"' + (S.lockMins === n ? ' selected' : '') + '>' + n + ' minutes idle</option>'; }).join('') + '</select></td></tr></tbody></table>' +
       (VIEW_ONLY ? '' : '<div class="row"><button class="btn" data-act="saveAs">Save a copy as…</button></div>') + '<div class="hint">Hiding each person\'s figures from the other can be switched on in a later version.</div></section></div>';
@@ -1736,6 +1748,12 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   app.addEventListener('change', function (e) {
     var t = e.target;
     if (t.dataset.act === 'lockMins') { S.lockMins = +t.value; return; }
+    if (t.dataset.act === 'devMode') {
+      if (t.value === 'edit' && ENV.mobile && !confirm('This looks like a phone or tablet, which normally can\'t save into OneDrive. Allow editing anyway?')) { t.value = DEVICE_MODE; return; }
+      if (S.dirty && !VIEW_ONLY && t.value === 'view' && !confirm('You have unsaved changes. Switch to view only anyway?')) { t.value = DEVICE_MODE; return; }
+      DEVICE_MODE = t.value; try { localStorage.setItem('rp-device-mode', DEVICE_MODE); } catch (e) {}
+      VIEW_ONLY = DEVICE_MODE === 'view' ? true : DEVICE_MODE === 'edit' ? false : ENV.mobile; render(); toast(VIEW_ONLY ? 'This device is now view only.' : 'Editing and saving allowed on this device.'); return;
+    }
     if (t.dataset.bind) {
       var type = t.dataset.type, v = type === 'bool' ? t.checked : parseVal(t.value, type);
       setPath(t.dataset.bind, v);
