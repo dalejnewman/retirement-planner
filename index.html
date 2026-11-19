@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.7.0';
+var RP_VERSION = '1.8.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.8.0', '2026-11-19', ['Phones and tablets are view only: change figures to try ideas, nothing is saved', '"Discard changes" puts the saved figures back', 'On a PC, if saving fails the planner offers to download your changes so nothing is lost']],
   ['1.7.0', '2026-11-19', ['One retirement date per person (on Income & Tax) drives every screen; work income stops on it', 'Each cash account\'s interest rate is used every year; super accounts can have their own return', 'One-off costs: "Paid" tick so paid items aren\'t counted again', 'Tax card and milestones follow the Dale / Sue view', 'Dashboard shows a retirement card for each person', 'Sue\'s views show only her one-off costs, retirement line and her share of spending', 'One-off costs are set by financial year (fixes costs dated this year being missed)', 'Market-fall test applies in the year you\'ve both retired', 'Clearer wording: cash rate and super return are separate settings']],
   ['1.6.0', '2026-11-19', ['Optional "Keep me signed in on this device" – no password after a refresh', '"Continue as …" button and "Forget this device" on the login screen and Users & passwords', 'Changing a password signs out every remembered device']],
   ['1.5.2', '2026-11-19', ['Android phones and tablets: the plan file (and every other file) is no longer greyed out when choosing the plan']],
@@ -907,10 +908,11 @@ var RP_HELP = [
 <li><b>"Open Retirement-Plan.rplan" doesn't work</b> – use <b>Choose plan file…</b> and pick it from the OneDrive folder.</li>
 <li><b>OneDrive shows a conflict copy</b> (e.g. <i>Retirement-Plan-DESKTOP.rplan</i>) – you both saved at once. Open each, keep the right one, delete the other.</li>
 <li><b>Figures look odd</b> – check retirement dates, the "In retirement" column (blank vs 0), and the Assumptions page.</li>
+<li><b>Phones and tablets are view only.</b> You can change any figure – budget, dates, sliders – to try ideas, but nothing is saved; the top bar says <i>Trying changes – not saved</i> and <b>Discard changes</b> puts the saved figures back. Make permanent changes on a PC.</li>
 <li><b>Phones and tablets</b> (iPhone, iPad, Android, Samsung tablets) – use the <b>web address</b>: {URL}. Opening the planner <i>file</i> on a phone or tablet doesn't work: it shows as a preview with dead buttons, or every file is greyed out when choosing the plan.
   <ul><li>Open the web address in Chrome or Safari, tap <b>Choose plan file…</b>, then pick the plan file from <b>OneDrive</b> (tap ☰ or <i>Browse</i> if it isn't listed).</li>
   <li><b>Add to home screen</b> (Safari: Share › Add to Home Screen; Chrome: ⋮ › Add to home screen) to open it like an app.</li>
-  <li>Saving on a phone or tablet downloads a new copy of the plan file, which then has to be moved back into OneDrive (replacing the old one). Easiest: <b>look</b> on the phone or tablet, <b>edit</b> on a computer.</li></ul></li>
+  </ul></li>
 </ul>`],
  ['terms', 'Glossary', `
 <dl>
@@ -940,6 +942,9 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   var S = { file: null, dataKey: null, plan: null, user: null, view: 'household', tab: 'dashboard', dirty: false,
     scen: 'base', taxFY: null, lastSaved: null, lockMins: 15, stage: 'file', createMode: false, recovery: false, err: '' };
   var app = document.getElementById('app');
+  // Phones and tablets can't save back into OneDrive from a web page, so they are view-only: changes are for trying ideas and are never saved.
+  var VIEW_ONLY = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (/[?&]edit=1/.test(location.search)) VIEW_ONLY = false;
   var C = null; // computed results for current render
 
   /* ---------- helpers ---------- */
@@ -956,7 +961,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     if (S.plan) return S.plan.people[w].name;
     var n = S.file && S.file.meta && S.file.meta.names; return (n && n[w]) || (w === 'dale' ? 'Partner 1' : 'Partner 2');
   }
-  function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
+  function toast(msg) { document.querySelectorAll('.toast').forEach(function (o) { o.remove(); }); var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
   var ICON = {
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>',
@@ -1036,11 +1041,14 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       '<div class="seg" role="group" aria-label="View">' + [['household', 'Household'], ['dale', pname('dale')], ['sue', pname('sue')]].map(function (v) {
         return '<button data-act="view" data-id="' + v[0] + '" class="' + (S.view === v[0] ? 'on' : '') + '">' + esc(v[1]) + '</button>'; }).join('') + '</div>' +
       '<div class="seg" role="group" aria-label="Funding mode"><button data-act="pooled" data-id="0" class="' + (!S.plan.settings.pooled ? 'on' : '') + '" title="Each person pays their own share from their own money">Separate</button><button data-act="pooled" data-id="1" class="' + (S.plan.settings.pooled ? 'on' : '') + '" title="One shared pot – either partner covers the other">Pooled</button></div>' +
-      '<div class="status' + (S.dirty ? ' dirty' : '') + '">' + (S.dirty ? 'Unsaved changes' : (S.lastSaved ? 'Saved ' + S.lastSaved : 'Opened')) + ' · ' + esc(who) + '</div>' +
-      '<button class="tbtn' + (S.dirty ? ' primary' : '') + '" data-act="save">Save</button>' +
+      (VIEW_ONLY
+        ? '<div class="status' + (S.dirty ? ' dirty' : '') + '">' + (S.dirty ? 'Trying changes – not saved' : 'View only') + ' · ' + esc(who) + '</div>' + (S.dirty ? '<button class="tbtn primary" data-act="discard">Discard changes</button>' : '')
+        : '<div class="status' + (S.dirty ? ' dirty' : '') + '">' + (S.dirty ? 'Unsaved changes' : (S.lastSaved ? 'Saved ' + S.lastSaved : 'Opened')) + ' · ' + esc(who) + '</div>' +
+      '<button class="tbtn' + (S.dirty ? ' primary' : '') + '" data-act="save">Save</button>') +
       '<button class="tbtn" data-act="lock" aria-label="Lock plan" title="Lock">' + ICON.lock + '</button></header>';
     h += '<div class="wrap"><nav class="side" aria-label="Sections">' + tabs.map(function (t) {
       return '<button data-act="tab" data-id="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + esc(t[1]) + '</button>'; }).join('') + '</nav><main>';
+    if (VIEW_ONLY) h += '<div class="note" role="status"><b>View only on this ' + (/iPad|Tablet/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) || (/Android/i.test(navigator.userAgent) && !/Mobile/i.test(navigator.userAgent)) ? 'tablet' : 'phone') + '.</b> Change any figure to try ideas – nothing is saved' + (S.dirty ? '. <button class="btn link" data-act="discard" style="padding:0;min-height:0">Discard changes</button> to go back to the saved plan.' : ', and the saved plan stays as it is.') + ' Make permanent changes on a PC.</div>';
     h += ({ dashboard: vDashboard, budget: vBudget, tax: vTax, savings: vSavings, forecast: vForecast, assumptions: vAssumptions, users: vUsers, help: vHelp })[S.tab]();
     h += '</main></div>';
     app.innerHTML = h;
@@ -1453,8 +1461,9 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   function vUsers() {
     var f = S.file, m = f.meta || {};
     var h = '<div class="head"><h1>Users &amp; passwords</h1><span class="sub">' + (isAdmin() ? 'Admin' : esc(pname(S.user))) + '</span></div>';
-    h += '<div class="grid2"><section class="card"><h2>Change my password</h2>' + pwFields('me') + '<button class="btn primary" data-act="pwMe" style="align-self:flex-start">Change password</button><div class="hint">Takes effect when you Save.</div></section>';
-    if (isAdmin()) {
+    if (VIEW_ONLY) h += '<div class="note">Passwords, the recovery key and names can only be changed on a PC, because they need saving.</div>';
+    h += '<div class="grid2">' + (VIEW_ONLY ? '' : '<section class="card"><h2>Change my password</h2>' + pwFields('me') + '<button class="btn primary" data-act="pwMe" style="align-self:flex-start">Change password</button><div class="hint">Takes effect when you Save.</div></section>');
+    if (isAdmin() && !VIEW_ONLY) {
       h += '<section class="card"><h2>' + esc(pname('sue')) + "'s access</h2><div class=\"sub\">" + (f.slots.sue ? 'Password is set.' : 'No password yet – ' + esc(pname('sue')) + ' cannot open the plan.') + '</div>' + pwFields('sue') +
         '<div class="row"><button class="btn primary" data-act="pwSue">' + (f.slots.sue ? 'Reset password' : 'Set password') + '</button>' + (f.slots.sue ? '<button class="btn danger" data-act="rmSue">Remove access</button>' : '') + '</div></section>';
       h += '<section class="card"><h2>Recovery key</h2><div class="sub">The only way back in if ' + esc(pname('dale')) + "'s password is forgotten. Keep it printed somewhere safe – not in the OneDrive folder.</div>" +
@@ -1472,7 +1481,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       : '<div class="sub">This device asks for the password each time.</div><button class="btn" data-act="keepDev" style="align-self:flex-start">Keep me signed in on this device</button>') +
       '<div class="hint">Use only on your own devices with a screen lock. Your password is never stored – changing it signs out every remembered device.</div></section>';
     h += '<section class="card"><h2>This plan file</h2><table><tbody><tr><td>File</td><td>' + esc(Files.name()) + '</td></tr><tr><td>Last saved</td><td>' + (m.savedAt ? new Date(m.savedAt).toLocaleString('en-AU') + ' by ' + esc(m.savedBy === 'recovery' ? 'recovery key' : pname(m.savedBy)) : '–') + '</td></tr><tr><td>Planner version</td><td>v' + RP_VERSION + ' (' + dfmt(RP_RELEASED) + ')</td></tr><tr><td>Plan last saved with</td><td>' + (m.appVersion ? 'v' + esc(m.appVersion) : 'v1.3.1 or earlier') + '</td></tr><tr><td>Times saved</td><td>' + (m.rev || 1) + '</td></tr><tr><td>Encryption</td><td>AES-256-GCM, keys from your password (PBKDF2, ' + Vault.ITER.toLocaleString() + ' rounds)</td></tr><tr><td>Auto-lock</td><td><select class="in w140" data-act="lockMins" aria-label="Auto-lock">' + [5, 15, 30, 60].map(function (n) { return '<option value="' + n + '"' + (S.lockMins === n ? ' selected' : '') + '>' + n + ' minutes idle</option>'; }).join('') + '</select></td></tr></tbody></table>' +
-      '<div class="row"><button class="btn" data-act="saveAs">Save a copy as…</button></div><div class="hint">Hiding each person\'s figures from the other can be switched on in a later version.</div></section></div>';
+      (VIEW_ONLY ? '' : '<div class="row"><button class="btn" data-act="saveAs">Save a copy as…</button></div>') + '<div class="hint">Hiding each person\'s figures from the other can be switched on in a later version.</div></section></div>';
     return h;
   }
   function pwFields(k) { return '<div class="field"><label for="pw1_' + k + '">New password</label><input class="in" type="password" id="pw1_' + k + '" autocomplete="new-password"></div><div class="field"><label for="pw2_' + k + '">Repeat</label><input class="in" type="password" id="pw2_' + k + '" autocomplete="new-password"></div>'; }
@@ -1605,6 +1614,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     } catch (e) { S.busy = false; S.err = e.message; renderLock(); }
   }
   async function saveNow(saveAs) {
+    if (VIEW_ONLY) { toast('View only on phones and tablets – make permanent changes on a PC.'); return; }
     try {
       if (!saveAs && Files.hasHandle() && await Files.changedOnDisk()) {
         var keep = confirm('Someone saved this plan since you opened it (perhaps ' + (S.user === 'dale' ? pname('sue') : pname('dale')) + ').\n\nOK = overwrite with your version\nCancel = load their version instead (your unsaved changes will be lost)');
@@ -1622,13 +1632,18 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       S.lastSaved = new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
       render();
       toast(res.mode === 'download' ? 'Downloaded ' + res.name + ' – move it into your OneDrive folder, replacing the old copy.' : 'Saved to ' + res.name);
-    } catch (e) { if (e && e.name === 'AbortError') return; alert('Could not save: ' + (e.message || e)); }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      if (confirm('Could not save to the plan file: ' + (e.message || e) + '\n\nDownload your changes as a copy instead, so nothing is lost?')) {
+        try { await Vault.seal(S.file, S.dataKey, S.plan, S.user); Files.download(Files.name(), JSON.stringify(S.file), 'application/json'); toast('Downloaded ' + Files.name() + ' – put it in your OneDrive folder, replacing the old one.'); } catch (x) { alert('Could not download either: ' + (x.message || x)); }
+      }
+    }
   }
   function lockNow(auto) {
     var go = function () { S.plan = null; S.dataKey = null; S.user = null; S.stage = 'login'; S.err = auto ? 'Locked after inactivity.' : ''; S.recovery = false; renderLock(); };
     if (S.dirty) {
-      if (auto && Files.hasHandle()) return saveNow(false).then(go);
-      if (!auto && !confirm('You have unsaved changes. Lock without saving?')) return;
+      if (auto && Files.hasHandle() && !VIEW_ONLY) return saveNow(false).then(go);
+      if (!auto && !confirm(VIEW_ONLY ? 'Lock and discard the changes you were trying?' : 'You have unsaved changes. Lock without saving?')) return;
     }
     go();
   }
@@ -1666,6 +1681,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       Files.download('Retirement forecast – ' + sc.name + (S.view === 'household' ? '' : ' – ' + pname(S.view)) + '.csv', lines.map(function (l) { return l.join(','); }).join('\r\n'), 'text/csv');
     },
     resetA: function () { if (confirm('Reset all assumptions to the built-in defaults? Your accounts, budget and income are not affected.')) { S.plan.assumptions = RP_DEFAULT_PLAN().assumptions; markDirty(); render(); } },
+    discard: function () { if (confirm('Discard your changes and go back to the saved plan?')) discardChanges(); },
     pwMe: function () { var p = readPw('me'); if (!p) return; pend(S.user === 'recovery' ? 'dale' : S.user, p); render(); toast('Password changed – press Save to apply it.'); },
     pwSue: function () { var p = readPw('sue'); if (!p) return; pend('sue', p); render(); toast(pname('sue') + "'s password set – press Save to apply it."); },
     rmSue: function () { if (confirm('Remove ' + pname('sue') + "'s access? She won't be able to open the plan until you set a new password.")) { pend('sue', null); delete S.file.slots.sue; render(); } },
@@ -1755,7 +1771,14 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     } else if (tt) tt.remove();
   });
   document.addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 's' && S.plan) { e.preventDefault(); saveNow(false); } });
-  window.addEventListener('beforeunload', function (e) { if (S.plan && S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  async function discardChanges() {
+    try {
+      var d = S.file.data, iv = Uint8Array.from(atob(d.iv), function (c) { return c.charCodeAt(0); }), ct = Uint8Array.from(atob(d.ct), function (c) { return c.charCodeAt(0); });
+      var plan = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, S.dataKey, ct)));
+      migratePlan(plan); S.plan = plan; S.dirty = false; S.pendingSlots = null; render(); toast('Back to the saved plan.');
+    } catch (e) { alert('Could not reload the saved plan: ' + (e.message || e)); }
+  }
+  window.addEventListener('beforeunload', function (e) { if (S.plan && S.dirty && !VIEW_ONLY) { e.preventDefault(); e.returnValue = ''; } });
   // auto-lock
   var idle = Date.now();
   ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function (ev) { document.addEventListener(ev, function () { idle = Date.now(); }, { passive: true }); });
