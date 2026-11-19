@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.6.0';
+var RP_VERSION = '1.7.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.7.0', '2026-11-19', ['One retirement date per person (on Income & Tax) drives every screen; work income stops on it', 'Each cash account\'s interest rate is used every year; super accounts can have their own return', 'One-off costs: "Paid" tick so paid items aren\'t counted again', 'Tax card and milestones follow the Dale / Sue view', 'Dashboard shows a retirement card for each person', 'Sue\'s views show only her one-off costs, retirement line and her share of spending', 'One-off costs are set by financial year (fixes costs dated this year being missed)', 'Market-fall test applies in the year you\'ve both retired', 'Clearer wording: cash rate and super return are separate settings']],
   ['1.6.0', '2026-11-19', ['Optional "Keep me signed in on this device" – no password after a refresh', '"Continue as …" button and "Forget this device" on the login screen and Users & passwords', 'Changing a password signs out every remembered device']],
   ['1.5.2', '2026-11-19', ['Android phones and tablets: the plan file (and every other file) is no longer greyed out when choosing the plan']],
   ['1.5.1', '2026-11-19', ['Web address for phones and tablets added to the Help guide and login screen']],
@@ -260,8 +261,9 @@ var RPE = (function () {
     var P = JSON.parse(JSON.stringify(plan.people));
     var s = scen || {};
     if (s.inflation != null) A.inflation = s.inflation;
-    if (s.cashRate != null) A.cashRate = s.cashRate;
-    if (s.superReturn != null) A.superReturn = s.superReturn;
+    var cashOverride = s.cashRate != null && s.cashRate !== '', superOverride = s.superReturn != null && s.superReturn !== '';
+    if (cashOverride) A.cashRate = +s.cashRate;
+    if (superOverride) A.superReturn = +s.superReturn;
     if (s.daleRetire) P.dale.retireDate = s.daleRetire;
     if (s.sueRetire) P.sue.retireDate = s.sueRetire;
     var spend = {
@@ -270,7 +272,7 @@ var RPE = (function () {
       split: s.splitPct != null ? s.splitPct : plan.settings.splitPct,
       splitMode: s.splitMode || plan.settings.splitMode || 'percent'
     };
-    return { A: A, P: P, spend: spend, stress: s.stress != null ? s.stress : 0, pooled: (s.pooled != null ? s.pooled : plan.settings.pooled) };
+    return { A: A, P: P, cashOverride: cashOverride, superOverride: superOverride, spend: spend, stress: s.stress != null ? s.stress : 0, pooled: (s.pooled != null ? s.pooled : plan.settings.pooled) };
   }
 
   function shareOf(owner, splitPct, who) {
@@ -321,25 +323,30 @@ var RPE = (function () {
 
     // opening balances
     var S = {};
-    who.forEach(function (w) { S[w] = { cash: 0, accum: 0, pension: 0, shares: 0, crypto: 0, feesAccum: 0, cryptoRate: 0, inPension: false, depleted: null }; });
+    who.forEach(function (w) { S[w] = { cashW: 0, cashV: 0, supW: 0, supV: 0, cash: 0, accum: 0, pension: 0, shares: 0, crypto: 0, feesAccum: 0, cryptoRate: 0, inPension: false, depleted: null }; });
     var dbs = [];
     plan.accounts.forEach(function (a) {
       var owners = a.owner === 'joint' ? (a.include ? [['dale', 0.5], ['sue', 0.5]] : []) : [[a.owner, 1]];
       owners.forEach(function (o) {
         var s = S[o[0]], v = (+a.balance || 0) * o[1];
-        if (a.type === 'cash') { s.rateNowW = (s.rateNowW || 0) + v * (a.rate != null && a.rate !== '' ? +a.rate : A.cashRate); s.cash += v; }
-        else if (a.type === 'super') { s.accum += v; s.feesAccum += (+a.fees || 0) * o[1]; }
-        else if (a.type === 'pension') s.pension += v;
+        var ownRet = a.ret != null && a.ret !== '' ? +a.ret : A.superReturn;
+        if (a.type === 'cash') { s.cashW += v * (a.rate != null && a.rate !== '' ? +a.rate : A.cashRate); s.cashV += v; s.cash += v; }
+        else if (a.type === 'super') { s.accum += v; s.feesAccum += (+a.fees || 0) * o[1]; s.supW += v * ownRet; s.supV += v; }
+        else if (a.type === 'pension') { s.pension += v; s.feesAccum += (+a.fees || 0) * o[1]; s.supW += v * ownRet; s.supV += v; }
         else if (a.type === 'shares') s.shares += v;
         else if (a.type === 'crypto') { s.cryptoRate = (s.crypto * s.cryptoRate + v * (+a.rate || 0)) / Math.max(1, s.crypto + v); s.crypto += v; }
         else if (a.type === 'db') dbs.push({ owner: o[0], amount: dbAmount(a) * o[1], date: d(a.leaveDate), dest: a.dest || 'pension', name: a.name, done: false });
       });
     });
 
-    who.forEach(function (w) { S[w].cashOpen = S[w].cash; });
+    // each person's interest rate = the balance-weighted rate of their own cash accounts (every year); super return likewise
+    who.forEach(function (w) { var s = S[w];
+      s.cashRate = E.cashOverride || !s.cashV ? A.cashRate : s.cashW / s.cashV;
+      s.superRate = E.superOverride || !s.supV ? A.superReturn : s.supW / s.supV; });
     var rows = [];
     var lasts = { dale: null, sue: null, household: null };
-    var stressFY = retire.dale ? fyOf(retire.dale) : null;
+    var lastRet = retire.dale && retire.sue ? (retire.dale > retire.sue ? retire.dale : retire.sue) : (retire.dale || retire.sue);
+    var stressFY = lastRet ? fyOf(lastRet) : null; // market fall in the year you have both retired
     var lastFY = Math.max(dob.dale.getFullYear(), dob.sue.getFullYear()) + horizonAge + 1;
 
     for (var fy = startFY, i = 0; fy <= lastFY; fy++, i++) {
@@ -392,6 +399,7 @@ var RPE = (function () {
             s.cash += toCash;
             if (s.inPension || (retiredBy && age >= A.preservationAge)) { s.pension += amt - toCash; s.inPension = true; }
             else s.accum += amt - toCash;
+            var supBal = s.accum + s.pension; s.superRate = supBal > 0 ? ((supBal - (amt - toCash)) * s.superRate + (amt - toCash) * A.superReturn) / supBal : A.superReturn;
             row.events.push({ who: w, text: b.name + ' paid out (' + Math.round(amt / 1000) + 'k)' });
           }
         });
@@ -407,14 +415,14 @@ var RPE = (function () {
         plan.incomes.forEach(function (inc) {
           if (inc.owner !== w) return;
           var end = d(inc.end);
-          if (inc.kind === 'work' && retire[w] && (!end || retire[w] < end)) end = retire[w];
+          if (inc.kind === 'work') end = retire[w]; // work income always stops at the person's retirement date
           var fr = ov(d(inc.start), end);
           if (fr <= 0) return;
           var amt = (+inc.amount || 0) * fr * (inc.indexed ? infl : 1);
           if (inc.kind === 'work') work += amt; else if (inc.kind === 'taxfree') taxFree += amt; else otherTax += amt;
           items.push({ name: inc.name, kind: inc.kind, amount: amt });
         });
-        var cr = (i === 0 && s.cashOpen > 0) ? s.rateNowW / s.cashOpen : A.cashRate;
+        var cr = s.cashRate;
         var interest = Math.max(0, s.cash) * cr * f;
         var div = s.shares * A.divYield * f;
         var frank = div * A.frankedPct * (0.30 / 0.70);
@@ -423,7 +431,7 @@ var RPE = (function () {
         // growth
         s.shares *= 1 + A.shareGrowth * f;
         s.crypto *= 1 + s.cryptoRate * f;
-        var accEarn = s.accum * A.superReturn * f, penEarn = s.pension * A.superReturn * f;
+        var accEarn = s.accum * s.superRate * f, penEarn = s.pension * s.superRate * f;
         var superTax = Math.max(0, accEarn) * A.superEarningsTax;
         var fees = s.accum > 0 || s.pension > 0 ? s.feesAccum * infl * f : 0;
         s.accum += accEarn - superTax; s.pension += penEarn;
@@ -450,8 +458,9 @@ var RPE = (function () {
         var oneOff = 0;
         (plan.oneOffs || []).forEach(function (o) {
           var sh = shareOf(o.owner, o.splitPct == null ? 50 : o.splitPct, w);
-          if (!sh || !o.year) return;
-          var hit = fy === +o.year || (o.every > 0 && fy > +o.year && (fy - o.year) % o.every === 0);
+          if (!sh || o.paid || !(o.fy || o.year)) return; // paid items are already reflected in balances
+          var f0 = +(o.fy || 0) || +o.year;
+          var hit = fy === f0 || (o.every > 0 && fy > f0 && (fy - f0) % o.every === 0);
           if (hit) oneOff += sh * (+o.amount || 0) * infl;
         });
         var ap = elig.indexOf(w) >= 0 ? row.agePension / elig.length : 0;
@@ -828,14 +837,15 @@ var RP_HELP = [
 <li><b>Owner:</b> {P1}, {P2} or Shared. For Shared, the % is <b>{P1}'s</b> share (50 = half each). Enter the <b>full</b> bill.</li>
 <li><b>Add:</b> <b>+ Add</b> beside a category, or <b>+ Add expense</b> at the top for a new category. Then type the name and amount.</li>
 <li><b>Move</b> an item to another category with the drop-down on the right; <b>delete</b> with the red bin (it asks first).</li>
-<li><b>One-off future costs:</b> cars, trips, renovations. Enter the year, cost in today's dollars, and "repeat every" years (0 = once).</li>
+<li><b>One-off future costs:</b> cars, trips, renovations. Choose the financial year it happens in, the cost in today's dollars, and "repeat every" years (0 = once). Tick <b>Paid</b> once it's paid – your balances already reflect it, so it isn't counted again.</li>
 <li><b>In retirement, base spending on:</b> either one <b>combined yearly amount</b> (e.g. $120,000 split 50/50) or the <b>In retirement</b> column. Before each person retires, the <b>Now</b> amounts are used.</li>
 </ul>`],
  ['tax', 'Income & Tax', `
 <ul>
 <li>Pick a financial year at the top to see that year's income and tax.</li>
+<li><b>Retirement date</b> for each person is at the top of their card. Change it here and every screen updates – the dashboard, forecast, scenarios and tax.</li>
 <li><b>Income streams:</b> add, edit or delete. Types:
-  <ul><li><b>Work (to retirement)</b> – consulting, salary; stops automatically at the retirement date.</li>
+  <ul><li><b>Work (to retirement)</b> – consulting, salary; stops automatically at that person's retirement date.</li>
   <li><b>Other taxable</b> – e.g. rent, part-time work after retiring (set From/To dates).</li>
   <li><b>Tax-free</b> – e.g. a gift or inheritance.</li></ul></li>
 <li>Interest, dividends and franking come from <b>Savings &amp; Super</b> automatically – don't add them here.</li>
@@ -846,7 +856,7 @@ var RP_HELP = [
 <ul>
 <li><b>+ Add account</b> under {P1}, {P2} or Joint. Choose the type: Cash, Super – accumulation, Super – pension, Shares, Crypto or Defined benefit.</li>
 <li>Update <b>balances</b> every few months, then press <b>Record today's balances</b> to add a dated row to the history.</li>
-<li><b>Rate now</b> (cash) is used for this year's interest; later years use the long-run rate on Assumptions.</li>
+<li><b>Interest / return %:</b> each cash account's interest rate (e.g. 5.25% goal saver) is used every year. Super accounts can have their own return; leave it blank to use the <b>Super return</b> on Assumptions (e.g. 4%).</li>
 <li><b>Joint accounts</b> are split 50/50 and only counted if "In forecast" is ticked.</li>
 <li><b>Defined benefit</b> (e.g. QSuper): the <b>Benefit amount</b> overrides the formula. When the statement arrives, enter the real amount – or clear it and enter the <b>multiple</b> and <b>final salary</b>. Choose whether it goes to a pension, cash or a mix when she leaves.</li>
 </ul>`],
@@ -1056,25 +1066,28 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     } else {
       var l = sep.lasts[S.view]; lastMain = l ? 'Age ' + l.age : 'Beyond 100'; lastSub = 'Paying own share (separate)';
     }
-    var dR = new Date(P.dale.retireDate + 'T00:00:00'), now = new Date();
-    var months = Math.max(0, (dR.getFullYear() - now.getFullYear()) * 12 + dR.getMonth() - now.getMonth());
+    function retTile(w) {
+      var dR = new Date(P[w].retireDate + 'T00:00:00'), now = new Date();
+      var months = Math.max(0, (dR.getFullYear() - now.getFullYear()) * 12 + dR.getMonth() - now.getMonth());
+      return kpi(esc(pname(w)) + ' retires', mfmt(P[w].retireDate), 'Age ' + RPE.ageAt(new Date(P[w].dob + 'T00:00:00'), dR) + (months > 0 ? ' · ' + Math.floor(months / 12) + ' yrs ' + (months % 12) + ' mths to go' : ' · retired') + '<br><button class="btn link" data-act="tab" data-id="tax" style="padding:0;min-height:0">Change date</button>');
+    }
     var split = C.base.splitPct;
     h += '<div class="grid">' +
       kpi('Net worth today', kM(nwv), S.view === 'household' ? esc(pname('dale')) + ' ' + kM(nw.dale) + ' · ' + esc(pname('sue')) + ' ' + kM(nw.sue) + dbNote : dbNote.replace(/^ \(|\)$/g, '')) +
       kpi('Money lasts until', lastMain, lastSub, true) +
-      kpi(esc(pname('dale')) + ' retires', mfmt(P.dale.retireDate), 'Age ' + RPE.ageAt(new Date(P.dale.dob + 'T00:00:00'), dR) + (months > 0 ? ' · ' + Math.floor(months / 12) + ' yrs ' + (months % 12) + ' mths to go' : ' · retired') + '<br>' + esc(pname('sue')) + ': ' + mfmt(P.sue.retireDate)) +
+      whoList().map(retTile).join('') +
       kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
-      kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) +
+      (S.view === 'household' ? kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) : kpi(esc(pname(S.view)) + "'s tax " + fy0.label, kM(S.view === 'dale' ? taxD : taxS), 'Effective rate ' + pct(fy0.p[S.view].tax.taxable > 0 ? fy0.p[S.view].taxPaid / fy0.p[S.view].tax.taxable : 0))) +
       '</div>';
     h += '<section class="card" aria-labelledby="chT"><div class="row"><h2 id="chT">Projected balances</h2><div class="legend">' +
       (whoList().indexOf('dale') >= 0 ? '<span><span class="sw" style="background:var(--dale)"></span>' + esc(pname('dale')) + '</span>' : '') +
       (whoList().indexOf('sue') >= 0 ? '<span><span class="sw" style="background:var(--sue)"></span>' + esc(pname('sue')) + '</span>' : '') +
-      '</div><span class="sub ml">Future dollars · ' + pct(p.assumptions.superReturn) + ' super, ' + pct(p.assumptions.cashRate) + ' cash, ' + pct(p.assumptions.inflation) + ' inflation · table view on Forecast</span></div>' +
+      '</div><span class="sub ml">Future dollars · ' + pct(p.assumptions.superReturn) + ' super, cash at each account\'s rate, ' + pct(p.assumptions.inflation) + ' inflation · table view on Forecast</span></div>' +
       '<div class="chart" id="chart">' + chartSVG(base) + '</div></section>';
     h += splitPanel();
     // milestones + separate vs pooled
     var ev = [];
-    base.rows.forEach(function (r) { r.events.forEach(function (e) { if (ev.length < 9) ev.push({ fy: r, e: e }); }); });
+    base.rows.forEach(function (r) { r.events.forEach(function (e) { if (ev.length < 9 && (S.view === 'household' || e.who === S.view || e.who === 'both')) ev.push({ fy: r, e: e }); }); });
     h += '<div class="grid2"><section class="card"><h2>Milestones</h2>' + ev.map(function (x) {
       return '<div class="ms"><b>' + esc(x.fy.label) + '</b><span>' + esc(x.e.text) + '</span></div>'; }).join('') + '</section>';
     var trans = 0, tf = { dale: 0, sue: 0 };
@@ -1150,7 +1163,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       s += '<rect class="hit" data-tip="' + esc(tip) + '" x="' + (padL + i * bw).toFixed(1) + '" y="' + padT + '" width="' + bw.toFixed(1) + '" height="' + (H - padT - padB) + '" fill="transparent"/>';
       var aw = ws.length === 1 ? ws[0] : 'dale';
       if (r.p[aw].age % 5 === 0) s += '<text x="' + (x + (bw - gap) / 2).toFixed(1) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + r.fy + '</text><text x="' + (x + (bw - gap) / 2).toFixed(1) + '" y="' + (H - padB + 27) + '" text-anchor="middle">' + esc(pname(aw)) + ' ' + r.p[aw].age + '</text>';
-      r.events.forEach(function (e) { if (/retires/.test(e.text)) { lab++; s += '<line x1="' + (x - gap / 2).toFixed(1) + '" x2="' + (x - gap / 2).toFixed(1) + '" y1="' + (2 + 15 * lab) + '" y2="' + (H - padB) + '" stroke="#15202B" stroke-dasharray="3 3"/><text x="' + (x + 2).toFixed(1) + '" y="' + (11 + 15 * (lab - 1)) + '" fill="#15202B" font-weight="600">' + esc(e.text) + '</text>'; } });
+      r.events.forEach(function (e) { if (/retires/.test(e.text) && ws.indexOf(e.who) >= 0) { lab++; s += '<line x1="' + (x - gap / 2).toFixed(1) + '" x2="' + (x - gap / 2).toFixed(1) + '" y1="' + (2 + 15 * lab) + '" y2="' + (H - padB) + '" stroke="#15202B" stroke-dasharray="3 3"/><text x="' + (x + 2).toFixed(1) + '" y="' + (11 + 15 * (lab - 1)) + '" fill="#15202B" font-weight="600">' + esc(e.text) + '</text>'; } });
     });
     s += '<line x1="' + padL + '" x2="' + (W - 6) + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '" stroke="#C9D0D7"/></g></svg>';
     return s;
@@ -1191,12 +1204,13 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     h += '<div class="tw"><table><thead><tr><th>Expense</th><th>Owner</th><th>Split</th><th class="num">Weekly</th><th class="num">Monthly</th><th class="num">Yearly</th><th class="num">In retirement /yr</th><th class="num">Category · delete</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
     h += '<div class="sub">"In retirement" blank = same as now; enter 0 for things that stop (e.g. work costs). Shared items show the full bill; the split is ' + esc(pname('dale')) + "'s %.</div>";
     // one-offs
-    var oo = (p.oneOffs || []).map(function (o) {
+    var fyOpts = []; for (var fy = C.base.startFY; fy < C.base.startFY + 30; fy++) fyOpts.push([String(fy), RPE.fyLabel(fy)]);
+    var oo = (p.oneOffs || []).filter(function (o) { return S.view === 'household' || RPE.shareOf(o.owner, o.splitPct == null ? 50 : o.splitPct, S.view) > 0; }).map(function (o) {
       var b = 'oneOffs:' + o.id + ':';
-      return '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Item' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td><td>' + (o.owner === 'shared' ? inp(b + 'splitPct', 'num', 'w70', { label: pname('dale') + ' share %' }) : '') + '</td><td>' + inp(b + 'year', 'num', 'w70', { label: 'Year' }) + '</td><td>' + inp(b + 'every', 'num', 'w70', { label: 'Repeat every N years (0 = once)' }) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Cost' }) + '</td><td class="num">' + delBtn('delOne', o.id, 'Delete one-off cost') + '</td></tr>';
+      return '<tr' + (o.paid ? ' style="opacity:.6"' : '') + '><td>' + inp(b + 'name', 'text', '', { label: 'Item' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td><td>' + (o.owner === 'shared' ? inp(b + 'splitPct', 'num', 'w70', { label: pname('dale') + ' share %' }) : '') + '</td><td>' + (o.paid ? '<span class="hint">–</span>' : sel(b + 'fy', fyOpts, 'w120', { label: 'Financial year' })) + '</td><td>' + (o.paid ? '' : inp(b + 'every', 'num', 'w70', { label: 'Repeat every N years (0 = once)' })) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Cost' }) + '</td><td class="nw"><label class="row" style="gap:6px;flex-wrap:nowrap;font-size:13px"><input type="checkbox" data-bind="' + b + 'paid" data-type="bool"' + (o.paid ? ' checked' : '') + ' style="width:18px;height:18px">Paid</label></td><td class="num">' + delBtn('delOne', o.id, 'Delete one-off cost') + '</td></tr>';
     }).join('');
     h += '<section class="card"><div class="row"><h2>One-off future costs</h2><span class="sub">Big items that don\'t happen every year · cost in today\'s dollars</span><button class="btn primary ml" data-act="addOne">+ Add one-off cost</button></div>' +
-      (oo ? '<div class="tw" style="border:0"><table><thead><tr><th>Item</th><th>Owner</th><th>Split</th><th>Year</th><th>Repeat every (yrs)</th><th class="num">Cost</th><th></th></tr></thead><tbody>' + oo + '</tbody></table></div>' : '<div class="sub">None yet – e.g. replacing a car in 2032 every 8 years, a big trip, home repairs.</div>') + '</section>';
+      (oo ? '<div class="tw" style="border:0"><table><thead><tr><th>Item</th><th>Owner</th><th>Split</th><th>When</th><th>Repeat every (yrs)</th><th class="num">Cost</th><th>Paid?</th><th></th></tr></thead><tbody>' + oo + '</tbody></table></div>' : '<div class="sub">None yet – e.g. replacing a car in 2032 every 8 years, a big trip, home repairs.</div>') + '</section>';
     return h;
   }
 
@@ -1212,10 +1226,11 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       var R = row.p[w], T = R.tax, maxT = Math.max.apply(null, T.parts.map(function (x) { return x.tax; }).concat([T.medicare, 1]));
       var col = w === 'dale' ? 'var(--dale)' : 'var(--sue)';
       h += '<section class="card p-' + w + '"><div class="row"><h2>' + esc(pname(w)) + '</h2><span class="sub">' + row.label + ' · age ' + R.age + (R.workFrac > 0 ? (R.workFrac < 0.99 ? ' · working part of the year' : ' · working') : ' · retired') + '</span></div>';
+      h += '<div class="row" style="background:var(--bg);border-radius:10px;padding:10px 12px;gap:12px"><div class="field" style="flex:1 1 200px"><label>' + esc(pname(w)) + '\'s retirement date</label><span class="hint">Work income stops here, spending switches to retirement, and super can be used from ' + p.assumptions.preservationAge + '. Updates every screen.</span></div>' + inp('people.' + w + '.retireDate', 'date', 'w140', { label: pname(w) + ' retirement date' }) + '</div>';
       h += '<div class="lab">Income streams</div>' + p.incomes.filter(function (i) { return i.owner === w; }).map(function (i) {
           var b = 'incomes:' + i.id + ':';
           return '<div class="inc">' + inp(b + 'name', 'text', '', { label: 'Income name' }) + inp(b + 'amount', 'money', '', { label: 'Amount per year' }) + delBtn('delInc', i.id, 'Delete income') +
-            '<div class="r2"><div class="field"><span class="hint">Type</span>' + sel(b + 'kind', [['work', 'Work (to retirement)'], ['taxable', 'Other taxable'], ['taxfree', 'Tax-free']], '', { label: 'Type' }) + '</div><div class="field"><span class="hint">From (blank = now)</span>' + inp(b + 'start', 'date', '', { label: 'Start' }) + '</div><div class="field"><span class="hint">To (blank = ongoing)</span>' + inp(b + 'end', 'date', '', { label: 'End' }) + '</div></div></div>';
+            '<div class="r2"><div class="field"><span class="hint">Type</span>' + sel(b + 'kind', [['work', 'Work (to retirement)'], ['taxable', 'Other taxable'], ['taxfree', 'Tax-free']], '', { label: 'Type' }) + '</div><div class="field"><span class="hint">From (blank = now)</span>' + inp(b + 'start', 'date', '', { label: 'Start' }) + '</div><div class="field"><span class="hint">To</span>' + (i.kind === 'work' ? '<span style="padding:8px 2px;font-size:14px">At retirement (' + mfmt(p.people[w].retireDate) + ')</span>' : inp(b + 'end', 'date', '', { label: 'End' }) + '<span class="hint">Blank = ongoing</span>') + '</div></div></div>';
         }).join('') + '<button class="btn link" data-act="addInc" data-id="' + w + '" style="align-self:flex-start">+ Add income</button>';
       h += '<div class="lab">' + row.label + ' – taxable income</div><table><tbody>' +
         R.income.items.map(function (it) { return '<tr><td>' + esc(it.name) + (it.kind === 'taxfree' ? ' <span class="hint">(tax-free)</span>' : '') + '</td><td class="num">' + money(it.amount) + '</td></tr>'; }).join('') +
@@ -1259,12 +1274,12 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       var list = p.accounts.filter(function (a) { return a.owner === w; });
       var tot = list.reduce(function (a, x) { return a + (x.type === 'db' ? RPE.dbAmount(x) : (w === 'joint' && !x.include ? 0 : +x.balance || 0)); }, 0);
       h += '<section class="card p-' + w + '"><div class="row"><h2>' + esc(pname(w)) + '</h2><span class="sub">' + money(tot) + (w === 'joint' ? ' counted in forecast (split 50/50)' : '') + '</span><button class="btn primary ml" data-act="addAcc" data-id="' + w + '">+ Add account</button></div>';
-      h += '<div class="tw" style="border:0"><table><thead><tr><th>Account</th><th>Type</th><th class="num">Balance</th><th class="num">Rate now</th><th class="num">Fees /yr</th><th>Notes</th>' + (w === 'joint' ? '<th>In forecast</th>' : '') + '<th></th></tr></thead><tbody>' +
+      h += '<div class="tw" style="border:0"><table><thead><tr><th>Account</th><th>Type</th><th class="num">Balance</th><th class="num">Interest / return %</th><th class="num">Fees /yr</th><th>Notes</th>' + (w === 'joint' ? '<th>In forecast</th>' : '') + '<th></th></tr></thead><tbody>' +
         list.map(function (a) {
           var b = 'accounts:' + a.id + ':';
           return '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Account name' }) + '</td><td>' + sel(b + 'type', TYPES, 'w140', { label: 'Type' }) + '</td>' +
             '<td class="num">' + (a.type === 'db' ? '<b>' + money(RPE.dbAmount(a)) + '</b>' : inp(b + 'balance', 'money', 'w110', { label: 'Balance' })) + '</td>' +
-            '<td class="num">' + (a.type === 'cash' || a.type === 'crypto' ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'rate', 'pct', 'w70', { label: 'Rate %' }) + '%</span>' : '<span class="hint">' + (a.type === 'db' ? 'formula' : 'see Assumptions') + '</span>') + '</td>' +
+            '<td class="num">' + (a.type === 'cash' || a.type === 'crypto' ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'rate', 'pct', 'w70', { label: 'Interest rate %' }) + '%</span>' : (a.type === 'super' || a.type === 'pension') ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'ret', 'pct', 'w70', { label: 'Return %', ph: (S.plan.assumptions.superReturn * 100).toFixed(1) }) + '%</span>' : '<span class="hint">' + (a.type === 'db' ? 'formula' : 'see Assumptions') + '</span>') + '</td>' +
             '<td class="num">' + (a.type === 'super' || a.type === 'pension' ? inp(b + 'fees', 'money', 'w90', { label: 'Fees per year' }) : '') + '</td>' +
             '<td>' + inp(b + 'note', 'text', '', { label: 'Notes' }) + '</td>' +
             (w === 'joint' ? '<td><input type="checkbox" data-bind="' + b + 'include" data-type="bool" ' + (a.include ? 'checked' : '') + ' aria-label="Include in forecast" style="width:18px;height:18px"></td>' : '') +
@@ -1299,8 +1314,9 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     ['superReturn', 'Super return', 'pct', 'assumptions.superReturn', 0.02, 0.10, 0.005],
     ['cashRate', 'Cash rate', 'pct', 'assumptions.cashRate', 0.01, 0.07, 0.0025],
     ['inflation', 'Inflation', 'pct', 'assumptions.inflation', 0.01, 0.06, 0.0025],
-    ['stress', 'Market fall in {P1}\'s retirement year', 'pct', null, 0, 0.4, 0.05]
+    ['stress', 'Market fall in the year you\'ve both retired', 'pct', null, 0, 0.4, 0.05]
   ];
+  function baseNote() { var P = S.plan.people; return pname('dale') + ' retires ' + mfmt(P.dale.retireDate) + ' · ' + pname('sue') + ' ' + mfmt(P.sue.retireDate) + ' · ' + kM(S.plan.settings.spendTarget) + '/yr'; }
   function scenById(id) { return S.plan.scenarios.filter(function (s) { return s.id === id; })[0]; }
   function scenOverrides(sc) { var o = {}; if (sc.id === 'base') { if (sc.stress) o.stress = sc.stress; return o; } SF.forEach(function (f) { if (sc[f[0]] != null && sc[f[0]] !== '') o[f[0]] = sc[f[0]]; }); return o; }
   function scenValue(sc, f) { if (sc.id !== 'base' && sc[f[0]] != null && sc[f[0]] !== '') return sc[f[0]]; if (f[0] === 'stress') return sc.stress || 0; return getPath(f[3]); }
@@ -1323,7 +1339,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       p.scenarios.map(function (s) {
         var on = p.compare.indexOf(s.id) >= 0;
         return '<div class="row" style="border-top:1px solid var(--line2);padding-top:8px"><input type="checkbox" data-act="cmp" data-id="' + s.id + '" ' + (on ? 'checked' : '') + ' aria-label="Compare ' + esc(s.name) + '" style="width:18px;height:18px;accent-color:var(--dale)">' +
-          '<button class="btn link" data-act="pickScen" data-id="' + s.id + '" style="' + (s.id === S.scen ? 'text-decoration:underline' : '') + '">' + esc(s.name) + '</button><span class="sub">' + esc(s.note || '') + '</span>' +
+          '<button class="btn link" data-act="pickScen" data-id="' + s.id + '" style="' + (s.id === S.scen ? 'text-decoration:underline' : '') + '">' + esc(s.name) + '</button><span class="sub">' + esc(s.id === 'base' ? baseNote() : (s.note || '')) + '</span>' +
           '<span class="ml"><b>' + (isH ? 'Lasts to ' : esc(pname(V)) + ': lasts to ') + esc(lastsFor(s)) + '</b></span>' +
           '<button class="ibtn" data-act="copyScen" data-id="' + s.id + '" aria-label="Copy scenario" title="Copy">' + ICON.copy + '</button>' +
           (s.id !== 'base' ? delBtn('delScen', s.id, 'Delete scenario') : '<span style="width:34px"></span>') + '</div>';
@@ -1332,10 +1348,13 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     // editor
     h += '<section class="card" style="flex:1 1 300px;max-width:380px"><div class="field"><label>Scenario name</label>' + (sc.id === 'base' ? '<b>Base plan</b><span class="hint">Changes here update the plan itself</span>' : '<input class="in" data-scen="name" value="' + esc(sc.name) + '" aria-label="Scenario name">') + '</div>' +
       (sc.id !== 'base' ? '<div class="field"><label>Note</label><input class="in" data-scen="note" value="' + esc(sc.note || '') + '" aria-label="Scenario note"></div>' : '') +
-      SF.map(function (f) {
+      (S.view === 'sue' ? [SF[1], SF[0]].concat(SF.slice(2)) : SF).map(function (f) {
         var v = scenValue(sc, f), id = 'sf_' + f[0];
         var lab = f[1].replace('{P1}', pname('dale')).replace('{P2}', pname('sue'));
+        if (f[0] === 'splitPct' && S.view === 'sue') { v = 100 - v; lab = pname('sue') + '\'s share of spending %'; }
         if (f[2] === 'date') return '<div class="field"><label for="' + id + '">' + esc(lab) + '</label><input id="' + id + '" class="in" type="date" data-sf="' + f[0] + '" value="' + esc(v || '') + '"></div>';
+        if (f[0] === 'cashRate' && sc.id === 'base') return '<div class="slider"><div class="top2"><span>Cash rate</span><span class="dale">from each account</span></div><div class="hint">Set on Savings & Super (e.g. 5.25% goal saver). A copied scenario can test a different rate.</div></div>';
+        if (f[0] === 'cashRate' && (sc.cashRate == null || sc.cashRate === '')) { var cv = 0, cw = 0; S.plan.accounts.forEach(function (a) { if (a.type === 'cash' && (+a.balance || 0) > 0 && (a.owner !== 'joint' || a.include)) { cv += +a.balance; cw += (+a.balance) * (a.rate != null && a.rate !== '' ? +a.rate : S.plan.assumptions.cashRate); } }); if (cv) v = cw / cv; }
         var disp = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%';
         return '<div class="slider"><label class="top2" for="' + id + '"><span>' + esc(lab) + '</span><span class="dale">' + disp + '</span></label><input id="' + id + '" type="range" min="' + f[4] + '" max="' + f[5] + '" step="' + f[6] + '" value="' + v + '" data-sf="' + f[0] + '"></div>';
       }).join('') +
@@ -1400,8 +1419,8 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     h += '<div class="grid2">';
     h += grp('Economic', 'economic',
       line('Inflation', 'Grows spending and limits each year', 'assumptions.inflation', 'pct', 'economic') +
-      line('Cash interest rate', 'Long-run rate on savings (current rates are on Savings & Super)', 'assumptions.cashRate', 'pct', 'economic') +
-      line('Super return', 'Before 15% earnings tax in accumulation; tax-free in pension phase', 'assumptions.superReturn', 'pct', 'economic') +
+      line('Default cash interest rate', 'Used for cash accounts with no rate of their own. Each account\'s rate on Savings & Super is used every year.', 'assumptions.cashRate', 'pct', 'economic') +
+      line('Super return', 'Separate from cash: the average yearly return for super accounts with no return of their own on Savings & Super (before the 15% earnings tax while working; tax-free once in pension phase)', 'assumptions.superReturn', 'pct', 'economic') +
       line('Share dividend yield', 'Plus franking credits', 'assumptions.divYield', 'pct', 'economic') +
       line('Share price growth', 'Per year', 'assumptions.shareGrowth', 'pct', 'economic') +
       line('Plan to age', 'Money should last until the younger partner reaches', 'assumptions.planToAge', 'num', 'economic'));
@@ -1530,9 +1549,25 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   }
 
   /* ---------- actions ---------- */
+  function migratePlan(plan) {
+    var notes = [], startFY = RPE.fyOf(new Date());
+    (plan.incomes || []).forEach(function (i) {
+      if (i.kind === 'work' && i.end) {
+        var P = plan.people[i.owner];
+        if (P && (!P.retireDate || i.end < P.retireDate)) { notes.push(P.name + "'s retirement date is now " + mfmt(i.end) + ' (from the "' + i.name + '" end date)'); P.retireDate = i.end; }
+        i.end = '';
+      }
+    });
+    var paidN = 0;
+    (plan.oneOffs || []).forEach(function (o) { if (!o.fy && o.year) { if (+o.year < startFY) { o.paid = true; paidN++; } o.fy = String(Math.max(startFY, +o.year)); } });
+    if (paidN) notes.push(paidN + ' one-off cost' + (paidN > 1 ? 's' : '') + ' dated before this financial year marked "Paid – already in balances" (not counted again)');
+    return notes;
+  }
   function enterPlan(plan, dataKey, who) {
+    var mig = migratePlan(plan);
     S.plan = plan; S.dataKey = dataKey; S.user = who; S.busy = false; S.view = 'household'; S.tab = who === 'recovery' ? 'users' : 'dashboard';
-    S.dirty = false; S.lastSaved = null;
+    S.dirty = mig.length > 0; S.lastSaved = null;
+    if (mig.length) setTimeout(function () { alert('Updated for this version:\n\n• ' + mig.join('\n• ') + '\n\nRetirement dates are now set in one place (Income & Tax) and update every screen. Check it, then press Save.'); }, 400);
     S.file.meta = S.file.meta || {}; S.file.meta.id = Vault.fileId(S.file);
     if (who === 'recovery') setTimeout(function () { toast('Set a new password for ' + pname('dale') + ' below, then Save.'); }, 300);
     var fv = S.file.meta && S.file.meta.appVersion;
@@ -1610,7 +1645,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       S.plan.expenses.push({ id: uid(), cat: c, name: 'New expense', owner: S.view === 'sue' ? 'sue' : 'dale', splitPct: 50, yearly: 0, retire: '' }); markDirty(); render();
     },
     delExp: function (id) { var e = S.plan.expenses.filter(function (x) { return x.id === id; })[0]; if (e && confirm('Delete "' + e.name + '"?')) { S.plan.expenses = S.plan.expenses.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
-    addOne: function () { S.plan.oneOffs.push({ id: uid(), name: 'New one-off cost', owner: 'shared', splitPct: 50, year: new Date().getFullYear() + 2, every: 0, amount: 0 }); markDirty(); render(); },
+    addOne: function () { S.plan.oneOffs.push({ id: uid(), name: 'New one-off cost', owner: S.view === 'household' ? 'shared' : S.view, splitPct: 50, fy: String(C.base.startFY), every: 0, amount: 0 }); markDirty(); render(); },
     delOne: function (id) { if (confirm('Delete this one-off cost?')) { S.plan.oneOffs = S.plan.oneOffs.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
     addInc: function (w) { S.plan.incomes.push({ id: uid(), owner: w, name: 'New income', kind: 'taxable', amount: 0, start: '', end: '', indexed: false }); markDirty(); render(); },
     delInc: function (id) { var e = S.plan.incomes.filter(function (x) { return x.id === id; })[0]; if (e && confirm('Delete "' + e.name + '"?')) { S.plan.incomes = S.plan.incomes.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
@@ -1697,6 +1732,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     if (t.dataset.sf) {
       var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0], sc2 = scenById(S.scen);
       var val = f[2] === 'date' ? t.value : +t.value;
+      if (f[0] === 'splitPct' && S.view === 'sue') val = 100 - val; // Sue's view shows her share
       if (sc2.id === 'base') { if (f[3]) setPath(f[3], val); else sc2.stress = val; } else sc2[f[0]] = val;
       markDirty(); render();
     }
