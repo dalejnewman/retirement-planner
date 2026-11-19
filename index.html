@@ -1,0 +1,1657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Retirement Planner</title>
+<style>:root{--ink:#15202B;--ink2:#3B4752;--muted:#5B6672;--line:#E3E7EC;--line2:#F0F2F5;--bg:#F4F6F8;--card:#FFFFFF;--dale:#2457C5;--daleBg:#EEF3FD;--sue:#E8913A;--sueInk:#A85A0F;--sueBg:#FDF1E4;--shared:#3B4752;--sharedBg:#EEF0F2;--warnBg:#FFF4D6;--warnInk:#6B4E00;--bad:#B42318;--good:#1E7B4A}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Segoe UI",Inter,system-ui,-apple-system,sans-serif}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--dale)}
+h1{margin:0;font-size:26px;letter-spacing:-.02em}
+h2{margin:0;font-size:18px}
+h3{margin:0;font-size:15px}
+.hidden{display:none!important}
+/* header */
+.top{background:var(--ink);color:#fff;padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:14px;position:sticky;top:0;z-index:20}
+.brand{font-weight:700;font-size:18px}
+.file{font-size:13px;color:#B8C2CC}
+.grow{flex:1 1 auto}
+.seg{display:flex;background:#26333F;border-radius:10px;padding:4px;gap:4px}
+.seg button{border:0;border-radius:8px;padding:7px 14px;min-height:34px;background:transparent;color:#fff;cursor:pointer;font-size:14px}
+.seg button.on{background:#fff;color:var(--ink);font-weight:600}
+.status{font-size:13px;color:#B8C2CC}
+.status.dirty{color:#FFD27A}
+.tbtn{border:1px solid #5B6B7A;background:transparent;color:#fff;border-radius:8px;padding:7px 14px;min-height:34px;cursor:pointer;font-size:14px}
+.tbtn.primary{background:#fff;color:var(--ink);border-color:#fff;font-weight:600}
+/* layout */
+.wrap{display:flex;flex-wrap:wrap;align-items:flex-start}
+nav.side{flex:1 1 200px;max-width:230px;padding:20px 14px;display:flex;flex-direction:column;gap:3px;position:sticky;top:62px}
+nav.side button{text-align:left;border:0;background:transparent;padding:10px 14px;border-radius:8px;color:var(--ink2);cursor:pointer;font-size:15px}
+nav.side button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+main{flex:999 1 560px;min-width:0;padding:22px 28px 60px;display:flex;flex-direction:column;gap:18px}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.sub{font-size:14px;color:var(--muted)}
+.ml{margin-left:auto}
+/* cards */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+.card.dark .k-sub,.card.dark .k-lab{color:#B8C2CC}
+.card.p-dale{border-top:4px solid var(--dale)}.card.p-sue{border-top:4px solid var(--sue)}.card.p-joint{border-top:4px solid #8A949E}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.grid2{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));align-items:start}
+.k-lab{font-size:13px;color:var(--muted);font-weight:500}
+.k-val{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.k-sub{font-size:13px;color:var(--muted)}
+.dale{color:var(--dale)}.sue{color:var(--sueInk)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.chip.dale{background:var(--daleBg);color:var(--dale)}.chip.sue{background:var(--sueBg);color:var(--sueInk)}.chip.shared,.chip.joint{background:var(--sharedBg);color:var(--shared)}
+.note{background:var(--warnBg);color:var(--warnInk);border-radius:10px;padding:10px 14px;font-size:14px}
+.tip{background:var(--daleBg);border-radius:10px;padding:12px 14px;font-size:14px;color:var(--ink2)}
+.badge{font-size:12px;background:var(--warnBg);color:var(--warnInk);padding:3px 10px;border-radius:999px}
+/* tables */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 12px;text-align:left;vertical-align:middle}
+thead th{background:var(--bg);font-weight:600;color:var(--ink2);white-space:nowrap}
+tbody tr{border-top:1px solid var(--line2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.grp th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;background:#fff}
+tr.tot{background:var(--bg);font-weight:700}
+.card table th,.card table td{padding:7px 8px}
+/* inputs */
+input.in,select.in{border:1px solid #C9D0D7;border-radius:7px;padding:6px 8px;min-height:34px;background:#fff;width:100%;min-width:0}
+input.in.num{text-align:right}
+input.in:focus,select.in:focus{outline:2px solid var(--dale);outline-offset:0;border-color:var(--dale)}
+input.in:disabled,select.in:disabled{background:var(--bg);color:var(--muted)}
+.in.w90{width:96px}.in.w110{width:116px}.in.w70{width:76px}.in.w140{width:150px}.in.w200{width:230px}.in.w120{width:124px}
+.btn{border:1px solid #C9D0D7;background:#fff;border-radius:8px;padding:8px 14px;min-height:40px;cursor:pointer;font-size:14px;font-weight:500}
+.btn.primary{background:var(--dale);border-color:var(--dale);color:#fff;font-weight:600}
+.btn.danger{color:var(--bad)}
+.btn.link{border:0;background:transparent;color:var(--dale);font-weight:600;padding:6px 4px;min-height:32px}
+.ibtn{border:1px solid var(--line);background:#fff;border-radius:8px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink2)}
+.ibtn.del{color:var(--bad)}
+.ibtn svg{width:15px;height:15px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label,.lab{font-size:13px;font-weight:600}
+.hint{font-size:12px;color:var(--muted);font-weight:400}
+.slider{display:flex;flex-direction:column;gap:4px}
+.slider .top2{display:flex;justify-content:space-between;font-size:14px;font-weight:600;gap:8px}
+.slider input[type=range]{accent-color:var(--dale);width:100%}
+/* chart */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--ink2);flex-wrap:wrap}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.tt{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:13px;padding:8px 10px;border-radius:8px;white-space:nowrap;z-index:5;transform:translate(-50%,-110%)}
+/* bracket bars */
+.bar{background:var(--line2);border-radius:4px;height:12px;overflow:hidden}
+.bar>div{height:12px;border-radius:4px}
+.ms{display:flex;gap:12px;font-size:14px}.ms b{width:86px;flex:0 0 86px;color:var(--muted)}
+/* unlock */
+.lock{min-height:100vh;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:30px 16px}
+.lockbox{width:100%;max-width:470px;display:flex;flex-direction:column;gap:18px}
+.lockbox .t{color:#fff;text-align:center}
+.lockbox .t div:first-child{font-size:26px;font-weight:700}
+.lockbox .t div:last-child{font-size:14px;color:#B8C2CC}
+.panel{background:#fff;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:16px}
+.who{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.who label{border:1px solid #C9D0D7;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}
+.who label.on{border:2px solid var(--dale)}
+.sec{background:#26333F;color:#DCE3EA;border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.5}
+.err{color:var(--bad);font-size:14px;font-weight:600}
+.rkey{font:700 20px/1.4 Consolas,monospace;letter-spacing:.06em;background:var(--bg);border-radius:8px;padding:12px;text-align:center;word-break:break-all}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:14px;z-index:50;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+@media (max-width:760px){
+ .top{padding:10px 12px;gap:8px;position:static}
+ .top .file,.top .status{display:none}
+ .top .brand{font-size:16px;flex:1 1 auto}
+ .top .grow{display:none}
+ .top .seg{order:5;flex:1 1 auto}
+ .top .seg button{flex:1 1 0;padding:7px 8px}
+ nav.side{max-width:none;flex:1 1 100%;flex-direction:row;overflow-x:auto;position:sticky;top:0;z-index:15;background:var(--bg);padding:8px 10px;gap:6px;-webkit-overflow-scrolling:touch;border-bottom:1px solid var(--line)}
+ nav.side button{white-space:nowrap;padding:8px 12px;font-size:14px;flex:0 0 auto;background:#fff;border:1px solid var(--line)}
+ nav.side button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+ main{padding:14px 12px 40px;gap:14px}
+ h1{font-size:22px}
+ .card{padding:14px}
+ .k-val{font-size:24px}
+ .grid2{grid-template-columns:minmax(0,1fr)}
+ .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+ input.in,select.in,.lock input.in{font-size:16px}
+ .head .ml{margin-left:0}
+ .inc .r2{grid-template-columns:minmax(0,1fr)}
+ .ms b{width:70px;flex:0 0 70px}
+}
+.nojs{background:#B42318;color:#fff;padding:16px 20px;font:16px/1.5 system-ui,sans-serif}
+.nojs b{display:block;font-size:18px;margin-bottom:4px}
+@media print{.top,nav.side,.btn,.ibtn{display:none!important}main{padding:0}}
+
+td.nw,th.nw{white-space:nowrap}
+td.ev{min-width:260px}
+.inc{display:grid;grid-template-columns:minmax(0,1fr) 120px 34px;gap:8px;align-items:center;border-top:1px solid var(--line2);padding-top:10px}
+.inc .r2{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:8px}
+
+details.help summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px}
+details.help summary::-webkit-details-marker{display:none}
+details.help summary::before{content:'+';font-weight:700;color:var(--dale);width:16px}
+details.help[open] summary::before{content:'–'}
+details.help summary h2{display:inline}
+.hbody{font-size:15px;line-height:1.6;color:var(--ink2)}
+.hbody ul,.hbody ol{margin:6px 0;padding-left:22px}.hbody li{margin:4px 0}
+.hbody dt{font-weight:700;color:var(--ink);margin-top:8px}.hbody dd{margin:2px 0 0 0}
+.helpnav{display:flex;flex-wrap:wrap;gap:6px}
+.helpnav a{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 12px;text-decoration:none}
+.lock .card.help,.lock .helpnav a{background:#fff}
+.lock .lab{color:#fff}
+@media print{.helpnav,#helpQ,.lab[for=helpQ]{display:none!important}details.help{break-inside:avoid;border:0}}
+details.help{scroll-margin-top:80px}
+details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
+</style>
+</head>
+<body>
+<div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
+<noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
+<script>/* App version and change history – bump RP_VERSION with every release */
+var RP_VERSION = '1.5.0';
+var RP_WEB_URL = ''; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
+var RP_RELEASED = '2026-11-19';
+var RP_CHANGES = [
+  ['1.5.0', '2026-11-19', ['Ready to use from a web address on phones and tablets', 'Names come from your plan file – no personal details are built into the planner', 'New plans start blank: enter names, birth dates and retirement dates when creating']],
+  ['1.4.2', '2026-11-19', ['Phone file chooser asks for any file type', 'Login screen shows which browser or app the planner is running in, and warns if it is a built-in viewer']],
+  ['1.4.1', '2026-11-19', ['The planner file name now ends with its version, e.g. Retirement-Planner-v1.4.1.html']],
+  ['1.4.0', '2026-11-19', ['Version number shown on the login screen and in the app', '"What\'s new" in the Help guide', 'Warns if a plan was saved by a newer version of the planner']],
+  ['1.3.1', '2026-11-19', ['Phones can now select the .rplan plan file']],
+  ['1.3.0', '2026-11-19', ['Phone-friendly layout', 'Red warning when the planner is opened in a preview that can\'t run it']],
+  ['1.2.1', '2026-11-19', ['Removed Bitcoin from the starting figures']],
+  ['1.2.0', '2026-11-19', ['Combined and per-person views on Forecast & Scenarios']],
+  ['1.1.0', '2026-11-19', ['Built-in Help guide, also available from the login screen']],
+  ['1.0.0', '2026-11-19', ['First release: dashboard, budget, income & tax, savings & super, forecast & scenarios, assumptions, encrypted plan file with separate logins for each partner']]
+];
+function rpEnvironment() {
+  var u = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+  var os = /iPhone|iPad|iPod/.test(u) ? 'iPhone/iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : 'Unknown system';
+  var viewer = /; wv\)/.test(u) || /FBAN|FBAV|Instagram|Line\//.test(u) || (/iPhone|iPad/.test(u) && !/Safari\//.test(u));
+  var app = /SamsungBrowser/.test(u) ? 'Samsung Internet' : /EdgA?\//.test(u) ? 'Edge' : /CriOS/.test(u) ? 'Chrome' : /FxiOS|Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Unknown app';
+  if (viewer) app = 'a built-in viewer';
+  return { os: os, app: app, viewer: viewer, mobile: /Android|iPhone|iPad|iPod/.test(u) };
+}
+function rpCompareVersions(a, b) {
+  var x = String(a || '0').split('.').map(Number), y = String(b || '0').split('.').map(Number);
+  for (var i = 0; i < 3; i++) { var d = (x[i] || 0) - (y[i] || 0); if (d) return d > 0 ? 1 : -1; }
+  return 0;
+}
+if (typeof module !== 'undefined') module.exports = { RP_VERSION: RP_VERSION, RP_CHANGES: RP_CHANGES, rpCompareVersions: rpCompareVersions };
+
+/* Retirement Planner – calculation engine (no UI, no network) */
+var RPE = (function () {
+  'use strict';
+  var DAY = 86400000;
+
+  function d(s) { return s ? new Date(s + 'T00:00:00') : null; }
+  function fyStart(fy) { return new Date(fy - 1, 6, 1); }
+  function fyEnd(fy) { return new Date(fy, 6, 1); }
+  function fyOf(date) { return date.getMonth() >= 6 ? date.getFullYear() + 1 : date.getFullYear(); }
+  function fyLabel(fy) { return 'FY ' + String(fy - 1).slice(2) + '–' + String(fy).slice(2); }
+  function ageAt(dob, date) {
+    var a = date.getFullYear() - dob.getFullYear();
+    if (date.getMonth() < dob.getMonth() || (date.getMonth() === dob.getMonth() && date.getDate() < dob.getDate())) a--;
+    return a;
+  }
+  // fraction of a year that [a,b) overlaps with [lo,hi)
+  function overlap(lo, hi, a, b) {
+    var s = Math.max(lo.getTime(), a ? a.getTime() : -Infinity);
+    var e = Math.min(hi.getTime(), b ? b.getTime() : Infinity);
+    return e > s ? (e - s) / (365.25 * DAY) : 0;
+  }
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
+  function minDrawRate(age, A) {
+    var t = A.minDrawdown; // [[ageFrom, rate], ...] ascending
+    var r = t[0][1];
+    for (var i = 0; i < t.length; i++) if (age >= t[i][0]) r = t[i][1];
+    return r;
+  }
+
+  function bracketsFor(fy, A) {
+    var best = A.taxYears[0];
+    for (var i = 0; i < A.taxYears.length; i++) if (A.taxYears[i].fromFY <= fy) best = A.taxYears[i];
+    return best.brackets;
+  }
+
+  // Resident income tax for one person for one FY. Returns breakdown.
+  function incomeTax(taxable, fy, A) {
+    taxable = Math.max(0, taxable);
+    var br = bracketsFor(fy, A), parts = [], gross = 0;
+    for (var i = 0; i < br.length; i++) {
+      var lo = br[i][0], hi = i + 1 < br.length ? br[i + 1][0] : Infinity, rate = br[i][1];
+      var amt = Math.max(0, Math.min(taxable, hi) - lo);
+      var t = amt * rate;
+      gross += t;
+      parts.push({ from: lo, to: hi, rate: rate, income: amt, tax: t });
+    }
+    // Low income tax offset
+    var lito = 0;
+    if (A.lito) {
+      if (taxable <= 37500) lito = 700;
+      else if (taxable <= 45000) lito = 700 - (taxable - 37500) * 0.05;
+      else if (taxable <= 66667) lito = 325 - (taxable - 45000) * 0.015;
+      lito = Math.max(0, Math.min(lito, gross));
+    }
+    var thr = A.medicareThreshold;
+    var medicare = taxable <= thr ? 0 : Math.min(taxable * A.medicareRate, (taxable - thr) * 0.10);
+    var total = gross - lito + medicare;
+    var marg = 0;
+    for (var j = 0; j < br.length; j++) if (taxable > br[j][0]) marg = br[j][1];
+    if (taxable > thr) marg += A.medicareRate;
+    return { taxable: taxable, parts: parts, gross: gross, lito: lito, medicare: medicare, total: total,
+      effective: taxable > 0 ? total / taxable : 0, marginal: marg };
+  }
+
+  function effective(plan, scen) {
+    // merge scenario overrides onto assumptions/people
+    var A = JSON.parse(JSON.stringify(plan.assumptions));
+    var P = JSON.parse(JSON.stringify(plan.people));
+    var s = scen || {};
+    if (s.inflation != null) A.inflation = s.inflation;
+    if (s.cashRate != null) A.cashRate = s.cashRate;
+    if (s.superReturn != null) A.superReturn = s.superReturn;
+    if (s.daleRetire) P.dale.retireDate = s.daleRetire;
+    if (s.sueRetire) P.sue.retireDate = s.sueRetire;
+    var spend = {
+      mode: s.spendMode || plan.settings.spendMode || 'target',
+      target: s.spendTarget != null ? s.spendTarget : plan.settings.spendTarget,
+      split: s.splitPct != null ? s.splitPct : plan.settings.splitPct,
+      splitMode: s.splitMode || plan.settings.splitMode || 'percent'
+    };
+    return { A: A, P: P, spend: spend, stress: s.stress != null ? s.stress : 0, pooled: (s.pooled != null ? s.pooled : plan.settings.pooled) };
+  }
+
+  function shareOf(owner, splitPct, who) {
+    if (owner === who) return 1;
+    if (owner === 'shared' || owner === 'joint') return who === 'dale' ? splitPct / 100 : 1 - splitPct / 100;
+    return 0;
+  }
+
+  function budgetTotals(plan) {
+    var t = { dale: { now: 0, ret: 0 }, sue: { now: 0, ret: 0 } };
+    plan.expenses.forEach(function (e) {
+      ['dale', 'sue'].forEach(function (w) {
+        var sh = shareOf(e.owner, e.splitPct == null ? 50 : e.splitPct, w);
+        t[w].now += sh * (e.yearly || 0);
+        t[w].ret += sh * (e.retire == null || e.retire === '' ? (e.yearly || 0) : e.retire);
+      });
+    });
+    return t;
+  }
+
+  function dbAmount(a) { return a.override ? +a.override : (+a.multiple || 0) * (+a.finalSalary || 0); }
+
+  function netWorth(plan) {
+    var r = { dale: 0, sue: 0, joint: 0, dbEstimate: 0 };
+    plan.accounts.forEach(function (a) {
+      var v = a.type === 'db' ? dbAmount(a) : (+a.balance || 0);
+      if (a.type === 'db') r.dbEstimate += v;
+      if (a.owner === 'joint') { if (a.include) r.joint += v; } else r[a.owner] += v;
+    });
+    r.total = r.dale + r.sue + r.joint;
+    return r;
+  }
+
+  /* Main projection. opts: {today: Date, scenario, horizonAge} */
+  function project(plan, opts) {
+    opts = opts || {};
+    var today = opts.today || new Date();
+    var E = effective(plan, opts.scenario);
+    var A = E.A, P = E.P;
+    var who = ['dale', 'sue'];
+    var dob = { dale: d(P.dale.dob), sue: d(P.sue.dob) };
+    var retire = { dale: d(P.dale.retireDate), sue: d(P.sue.retireDate) };
+    var horizonAge = opts.horizonAge || 100;
+    var startFY = fyOf(today);
+    var bt = budgetTotals(plan);
+    var splitPct = E.spend.splitMode === 'budget' && (bt.dale.ret + bt.sue.ret) > 0
+      ? 100 * bt.dale.ret / (bt.dale.ret + bt.sue.ret) : E.spend.split;
+
+    // opening balances
+    var S = {};
+    who.forEach(function (w) { S[w] = { cash: 0, accum: 0, pension: 0, shares: 0, crypto: 0, feesAccum: 0, cryptoRate: 0, inPension: false, depleted: null }; });
+    var dbs = [];
+    plan.accounts.forEach(function (a) {
+      var owners = a.owner === 'joint' ? (a.include ? [['dale', 0.5], ['sue', 0.5]] : []) : [[a.owner, 1]];
+      owners.forEach(function (o) {
+        var s = S[o[0]], v = (+a.balance || 0) * o[1];
+        if (a.type === 'cash') { s.rateNowW = (s.rateNowW || 0) + v * (a.rate != null && a.rate !== '' ? +a.rate : A.cashRate); s.cash += v; }
+        else if (a.type === 'super') { s.accum += v; s.feesAccum += (+a.fees || 0) * o[1]; }
+        else if (a.type === 'pension') s.pension += v;
+        else if (a.type === 'shares') s.shares += v;
+        else if (a.type === 'crypto') { s.cryptoRate = (s.crypto * s.cryptoRate + v * (+a.rate || 0)) / Math.max(1, s.crypto + v); s.crypto += v; }
+        else if (a.type === 'db') dbs.push({ owner: o[0], amount: dbAmount(a) * o[1], date: d(a.leaveDate), dest: a.dest || 'pension', name: a.name, done: false });
+      });
+    });
+
+    who.forEach(function (w) { S[w].cashOpen = S[w].cash; });
+    var rows = [];
+    var lasts = { dale: null, sue: null, household: null };
+    var stressFY = retire.dale ? fyOf(retire.dale) : null;
+    var lastFY = Math.max(dob.dale.getFullYear(), dob.sue.getFullYear()) + horizonAge + 1;
+
+    for (var fy = startFY, i = 0; fy <= lastFY; fy++, i++) {
+      var lo = i === 0 ? today : fyStart(fy), hi = fyEnd(fy);
+      var yl = overlap(fyStart(fy), hi, null, null);
+      var ov = function (a, b) { return overlap(lo, hi, a, b) / yl; };
+      var f = ov(null, null);
+      var infl = Math.pow(1 + A.inflation, i);
+      var row = { fy: fy, label: fyLabel(fy), frac: f, infl: infl, p: {}, events: [], agePension: 0, transfers: [] };
+      var endDate = new Date(fy, 5, 30);
+
+      // Age Pension (household, based on opening balances)
+      var ages = { dale: ageAt(dob.dale, endDate), sue: ageAt(dob.sue, endDate) };
+      var elig = who.filter(function (w) { return ages[w] >= A.agePension.age; });
+      if (elig.length) {
+        var assets = 0, fin = 0;
+        who.forEach(function (w) { var s = S[w]; var v = Math.max(0, s.cash) + s.accum + s.pension + s.shares + s.crypto; assets += v; fin += v; });
+        var idx = Math.pow(1 + A.inflation, i);
+        var maxRate = A.agePension.coupleMaxYear * idx;
+        var assetRed = Math.max(0, assets - A.agePension.coupleFullLimit * idx) / 1000 * A.agePension.taperPer1000Fn * 26;
+        var dt = A.agePension.deemThreshold * idx;
+        var deemed = Math.min(fin, dt) * A.agePension.deemLow + Math.max(0, fin - dt) * A.agePension.deemHigh;
+        var workInc = 0;
+        var incRed = Math.max(0, deemed + workInc - A.agePension.coupleIncomeFreeYear * idx) * 0.5;
+        var ap = Math.max(0, maxRate - Math.max(assetRed, incRed));
+        ap = ap * elig.length / 2 * f;
+        row.agePension = ap;
+        row.agePensionTest = assetRed >= incRed ? 'assets' : 'income';
+      }
+
+      who.forEach(function (w) {
+        var s = S[w], age = ages[w], R = { age: age };
+        var workFrac = ov(null, retire[w]);
+        var retFrac = f - workFrac;
+        var retiredBy = retire[w] && retire[w] < hi;
+        R.retired = retiredBy;
+        // events
+        if (retire[w] && retire[w] >= lo && retire[w] < hi) row.events.push({ who: w, text: P[w].name + ' retires' });
+        // pension phase conversion
+        if (!s.inPension && retiredBy && age >= A.preservationAge) {
+          s.pension += s.accum; s.accum = 0; s.inPension = true;
+          row.events.push({ who: w, text: P[w].name + "'s super moves to tax-free pension" });
+        }
+        // DB payout
+        dbs.forEach(function (b) {
+          if (b.owner === w && !b.done && b.date && b.date < hi) {
+            b.done = true;
+            var amt = b.amount;
+            var toCash = b.dest === 'cash' ? amt : (b.dest === 'split' ? amt * 0.25 : 0);
+            s.cash += toCash;
+            if (s.inPension || (retiredBy && age >= A.preservationAge)) { s.pension += amt - toCash; s.inPension = true; }
+            else s.accum += amt - toCash;
+            row.events.push({ who: w, text: b.name + ' paid out (' + Math.round(amt / 1000) + 'k)' });
+          }
+        });
+        // stress year
+        var stressHit = 0;
+        if (E.stress && fy === stressFY) {
+          stressHit = (s.accum + s.pension + s.shares) * E.stress;
+          s.accum *= 1 - E.stress; s.pension *= 1 - E.stress; s.shares *= 1 - E.stress;
+          if (w === 'dale') row.events.push({ who: 'both', text: 'Stress test: markets fall ' + Math.round(E.stress * 100) + '%' });
+        }
+        // income streams
+        var work = 0, otherTax = 0, taxFree = 0, items = [];
+        plan.incomes.forEach(function (inc) {
+          if (inc.owner !== w) return;
+          var end = d(inc.end);
+          if (inc.kind === 'work' && retire[w] && (!end || retire[w] < end)) end = retire[w];
+          var fr = ov(d(inc.start), end);
+          if (fr <= 0) return;
+          var amt = (+inc.amount || 0) * fr * (inc.indexed ? infl : 1);
+          if (inc.kind === 'work') work += amt; else if (inc.kind === 'taxfree') taxFree += amt; else otherTax += amt;
+          items.push({ name: inc.name, kind: inc.kind, amount: amt });
+        });
+        var cr = (i === 0 && s.cashOpen > 0) ? s.rateNowW / s.cashOpen : A.cashRate;
+        var interest = Math.max(0, s.cash) * cr * f;
+        var div = s.shares * A.divYield * f;
+        var frank = div * A.frankedPct * (0.30 / 0.70);
+        items.push({ name: 'Interest', kind: 'interest', amount: interest });
+        if (div > 0) items.push({ name: 'Dividends', kind: 'dividend', amount: div });
+        // growth
+        s.shares *= 1 + A.shareGrowth * f;
+        s.crypto *= 1 + s.cryptoRate * f;
+        var accEarn = s.accum * A.superReturn * f, penEarn = s.pension * A.superReturn * f;
+        var superTax = Math.max(0, accEarn) * A.superEarningsTax;
+        var fees = s.accum > 0 || s.pension > 0 ? s.feesAccum * infl * f : 0;
+        s.accum += accEarn - superTax; s.pension += penEarn;
+        if (s.pension > 0) s.pension = Math.max(0, s.pension - fees); else s.accum = Math.max(0, s.accum - fees);
+        // contributions while working
+        var cc = (+P[w].concessional || 0) * (workFrac);
+        s.accum += cc * (1 - A.superContribTax);
+        // minimum drawdown
+        var draw = s.inPension ? s.pension * minDrawRate(age, A) * f : 0;
+        s.pension -= draw;
+        // tax
+        var taxable = work + otherTax + interest + div + frank - cc;
+        var T = incomeTax(taxable, fy, A);
+        var tax = Math.max(0, T.total) - frank; // franking credits refundable
+        // spending
+        var spend = 0;
+        plan.expenses.forEach(function (e) {
+          var sh = shareOf(e.owner, e.splitPct == null ? 50 : e.splitPct, w);
+          if (!sh) return;
+          var now = +e.yearly || 0, ret = (e.retire == null || e.retire === '') ? now : +e.retire;
+          spend += sh * (workFrac * now + (E.spend.mode === 'target' ? 0 : retFrac * ret)) * infl;
+        });
+        if (E.spend.mode === 'target') spend += retFrac * E.spend.target * (w === 'dale' ? splitPct / 100 : 1 - splitPct / 100) * infl;
+        var oneOff = 0;
+        (plan.oneOffs || []).forEach(function (o) {
+          var sh = shareOf(o.owner, o.splitPct == null ? 50 : o.splitPct, w);
+          if (!sh || !o.year) return;
+          var hit = fy === +o.year || (o.every > 0 && fy > +o.year && (fy - o.year) % o.every === 0);
+          if (hit) oneOff += sh * (+o.amount || 0) * infl;
+        });
+        var ap = elig.indexOf(w) >= 0 ? row.agePension / elig.length : 0;
+        var net = work + otherTax + taxFree + interest + div + draw + ap - tax - spend - oneOff - cc;
+        s.cash += net;
+        // cover shortfall from own assets
+        var extra = 0;
+        if (s.cash < 0 && s.inPension) { var x = Math.min(-s.cash, s.pension); s.pension -= x; s.cash += x; extra += x; }
+        if (s.cash < 0 && age >= A.preservationAge && retiredBy) { var y = Math.min(-s.cash, s.accum); s.accum -= y; s.cash += y; extra += y; }
+        if (s.cash < 0) { var z = Math.min(-s.cash, s.shares); s.shares -= z; s.cash += z; }
+        if (s.cash < 0) { var c = Math.min(-s.cash, s.crypto); s.crypto -= c; s.cash += c; }
+        R.income = { work: work, other: otherTax, taxFree: taxFree, interest: interest, dividends: div, franking: frank, drawdown: draw + extra, agePension: ap, items: items };
+        R.tax = T; R.taxPaid = tax; R.superTax = superTax; R.concessional = cc;
+        R.spend = spend; R.oneOff = oneOff; R.stressHit = stressHit;
+        R.fromSuper = draw + extra;
+        R.workFrac = workFrac;
+        row.p[w] = R;
+      });
+
+      // pooled: one partner covers the other's shortfall
+      if (E.pooled) {
+        who.forEach(function (w) {
+          var o = w === 'dale' ? 'sue' : 'dale', s = S[w], t = S[o];
+          if (s.cash >= 0) return;
+          var need = -s.cash;
+          var srcs = [['cash', Math.max(0, t.cash)], ['pension', t.pension], ['shares', t.shares], ['crypto', t.crypto]];
+          if (ages[o] >= A.preservationAge && retire[o] && retire[o] < fyEnd(fy)) srcs.splice(2, 0, ['accum', t.accum]);
+          var moved = 0;
+          srcs.forEach(function (src) { var k = src[0]; var x = Math.min(need - moved, Math.max(0, t[k])); if (x > 0) { t[k] -= x; moved += x; } });
+          if (moved > 0) { s.cash += moved; row.transfers.push({ from: o, to: w, amount: moved }); }
+        });
+      }
+
+      // closing balances
+      var hh = 0, hhDeficit = 0;
+      who.forEach(function (w) {
+        var s = S[w], R = row.p[w];
+        R.bal = { cash: s.cash, accum: s.accum, pension: s.pension, shares: s.shares, crypto: s.crypto };
+        R.total = Math.max(0, s.cash) + s.accum + s.pension + s.shares + s.crypto;
+        R.deficit = s.cash < 0 ? -s.cash : 0;
+        if (R.deficit > 1 && lasts[w] == null) { lasts[w] = { fy: fy, age: R.age }; row.events.push({ who: w, text: P[w].name + "'s money runs out" }); }
+        hh += R.total; hhDeficit += R.deficit;
+      });
+      row.total = hh; row.deficit = hhDeficit;
+      if (E.pooled && hhDeficit > 1 && lasts.household == null) lasts.household = { fy: fy, ageDale: row.p.dale.age, ageSue: row.p.sue.age };
+      if (!E.pooled && lasts.household == null && lasts.dale && lasts.sue) lasts.household = { fy: fy, ageDale: row.p.dale.age, ageSue: row.p.sue.age };
+      // milestones
+      who.forEach(function (w) {
+        var a = row.p[w].age;
+        if (a === 65 && rows.every(function (r) { return r.p[w].age !== 65; })) row.events.push({ who: w, text: P[w].name + ' turns 65 – min drawdown 5%' });
+        if (a === A.agePension.age && rows.every(function (r) { return r.p[w].age !== a; })) row.events.push({ who: w, text: P[w].name + ' reaches Age Pension age' + (row.agePension > 0 ? '' : ' – not eligible (assets)') });
+      });
+      rows.push(row);
+    }
+    return { rows: rows, lasts: lasts, splitPct: splitPct, startFY: startFY, E: E, today: today };
+  }
+
+  // Highest combined retirement target (today's $) that lasts until the younger partner reaches planAge
+  function sustainableSpend(plan, opts) {
+    opts = opts || {};
+    var planAge = plan.assumptions.planToAge;
+    var lo = 0, hi = 400000;
+    function ok(t) {
+      var sc = Object.assign({}, opts.scenario || {}, { spendTarget: t, spendMode: 'target', pooled: true });
+      var r = project(plan, { today: opts.today, scenario: sc, horizonAge: planAge + 1 });
+      return !r.lasts.household || r.lasts.household.ageDale > planAge;
+    }
+    if (!ok(0)) return 0;
+    for (var k = 0; k < 22; k++) { var m = (lo + hi) / 2; if (ok(m)) lo = m; else hi = m; }
+    return Math.floor(lo / 500) * 500;
+  }
+
+  return { project: project, incomeTax: incomeTax, budgetTotals: budgetTotals, netWorth: netWorth, sustainableSpend: sustainableSpend,
+    fyOf: fyOf, fyLabel: fyLabel, ageAt: ageAt, dbAmount: dbAmount, shareOf: shareOf, minDrawRate: minDrawRate };
+})();
+if (typeof module !== 'undefined') module.exports = RPE;
+
+/* Starting plan for a brand-new plan file – deliberately contains no personal figures.
+   Names, birth dates and retirement dates are entered on the "Create a new plan" screen. */
+var RP_DEFAULT_PLAN = function () {
+  var id = 0; function n() { return 'i' + (++id); }
+  function ex(cat, name, owner) { return { id: n(), cat: cat, name: name, owner: owner || 'shared', splitPct: 50, yearly: 0, retire: '' }; }
+  return {
+    version: 1,
+    people: {
+      dale: { name: 'Partner 1', dob: '1970-01-01', retireDate: '2035-01-01', concessional: 0 },
+      sue: { name: 'Partner 2', dob: '1970-01-01', retireDate: '2035-01-01', concessional: 0 }
+    },
+    expenses: [
+      ex('Living', 'Groceries'), ex('Living', 'Electricity & gas'), ex('Living', 'Rates & water'),
+      ex('Home', 'Home & contents insurance'), ex('Home', 'Repairs & maintenance'),
+      ex('Vehicles', 'Rego & insurance'), ex('Vehicles', 'Fuel'), ex('Vehicles', 'Servicing'),
+      ex('Phone & internet', 'Phones'), ex('Phone & internet', 'Internet'),
+      ex('Health', 'Private health insurance'), ex('Health', 'Medical & pharmacy'),
+      ex('Lifestyle', 'Eating out & entertainment'), ex('Lifestyle', 'Holidays')
+    ],
+    oneOffs: [],
+    incomes: [],
+    accounts: [
+      { id: n(), owner: 'dale', name: 'Savings', type: 'cash', balance: 0, rate: 0.045, fees: 0, note: '' },
+      { id: n(), owner: 'dale', name: 'Super', type: 'super', balance: 0, rate: 0, fees: 0, note: '' },
+      { id: n(), owner: 'sue', name: 'Savings', type: 'cash', balance: 0, rate: 0.045, fees: 0, note: '' },
+      { id: n(), owner: 'sue', name: 'Super', type: 'super', balance: 0, rate: 0, fees: 0, note: '' },
+      { id: n(), owner: 'joint', name: 'Joint account', type: 'cash', balance: 0, rate: 0, fees: 0, include: false, note: '' }
+    ],
+    assumptions: {
+      inflation: 0.03, cashRate: 0.045, superReturn: 0.065, divYield: 0.04, frankedPct: 1, shareGrowth: 0.03,
+      superEarningsTax: 0.15, superContribTax: 0.15, preservationAge: 60, planToAge: 95,
+      medicareRate: 0.02, medicareThreshold: 27222, lito: true,
+      minDrawdown: [[0, 0.04], [65, 0.05], [75, 0.06], [80, 0.07], [85, 0.09], [90, 0.11], [95, 0.14]],
+      taxYears: [
+        { fromFY: 2027, label: '2026–27', brackets: [[0, 0], [18200, 0.15], [45000, 0.30], [135000, 0.37], [190000, 0.45]] },
+        { fromFY: 2028, label: '2027–28 onwards', brackets: [[0, 0], [18200, 0.14], [45000, 0.30], [135000, 0.37], [190000, 0.45]] }
+      ],
+      agePension: { age: 67, coupleMaxYear: 48516, coupleFullLimit: 499000, coupleCutoff: 1121000, taperPer1000Fn: 3,
+        coupleIncomeFreeYear: 10296, deemThreshold: 110600, deemLow: 0.0175, deemHigh: 0.0375 },
+      updated: { economic: '2026-11-19', tax: '2026-11-19', super: '2026-11-19', agePension: '2026-11-19' },
+      reviewDue: '2027-07-01'
+    },
+    settings: { spendMode: 'target', spendTarget: 80000, splitPct: 50, splitMode: 'percent', pooled: true },
+    scenarios: [{ id: 'base', name: 'Base plan', note: '' }],
+    compare: ['base'],
+    history: []
+  };
+};
+if (typeof module !== 'undefined') module.exports = RP_DEFAULT_PLAN;
+
+/* Encrypted plan file: AES-256-GCM data, key wrapped separately for each partner and a recovery key.
+   Uses only the browser's built-in Web Crypto – nothing leaves the computer. */
+var Vault = (function () {
+  'use strict';
+  var ITER = 600000;
+  var enc = new TextEncoder(), dec = new TextDecoder();
+  function b64(buf) { var s = '', a = new Uint8Array(buf); for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
+  function unb64(s) { var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function rand(n) { return crypto.getRandomValues(new Uint8Array(n)); }
+
+  async function kek(secret, salt, iter) {
+    var base = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, base,
+      { name: 'AES-GCM', length: 256 }, false, ['wrapKey', 'unwrapKey']);
+  }
+  async function makeSlot(dataKey, secret) {
+    var salt = rand(16), iv = rand(12);
+    var k = await kek(secret, salt, ITER);
+    var wrapped = await crypto.subtle.wrapKey('raw', dataKey, k, { name: 'AES-GCM', iv: iv });
+    return { salt: b64(salt), iv: b64(iv), key: b64(wrapped), iter: ITER };
+  }
+  async function openSlot(slot, secret) {
+    var k = await kek(secret, unb64(slot.salt), slot.iter || ITER);
+    return crypto.subtle.unwrapKey('raw', unb64(slot.key), k, { name: 'AES-GCM', iv: unb64(slot.iv) },
+      { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  }
+  function normRecovery(s) { return String(s || '').toUpperCase().replace(/[^A-Z2-9]/g, ''); }
+  function newRecoveryKey() {
+    var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = rand(24), out = '';
+    for (var i = 0; i < 24; i++) { out += abc[r[i] % abc.length]; if (i % 4 === 3 && i < 23) out += '-'; }
+    return out;
+  }
+
+  async function encryptData(dataKey, obj) {
+    var iv = rand(12);
+    var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dataKey, enc.encode(JSON.stringify(obj)));
+    return { iv: b64(iv), ct: b64(ct) };
+  }
+  async function decryptData(dataKey, d) {
+    var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(d.iv) }, dataKey, unb64(d.ct));
+    return JSON.parse(dec.decode(pt));
+  }
+
+  // Create a brand-new vault. Returns {file, dataKey, recoveryKey}
+  async function create(plan, passwords, who) {
+    var dataKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    var recoveryKey = newRecoveryKey();
+    var file = { format: 'retirement-plan', v: 1, slots: {}, data: null, meta: {} };
+    file.slots.dale = await makeSlot(dataKey, passwords.dale);
+    if (passwords.sue) file.slots.sue = await makeSlot(dataKey, passwords.sue);
+    file.slots.recovery = await makeSlot(dataKey, normRecovery(recoveryKey));
+    await seal(file, dataKey, plan, who);
+    return { file: file, dataKey: dataKey, recoveryKey: recoveryKey };
+  }
+  async function seal(file, dataKey, plan, who) {
+    file.data = await encryptData(dataKey, plan);
+    file.meta = { savedAt: new Date().toISOString(), savedBy: who, rev: ((file.meta && file.meta.rev) || 0) + 1, appVersion: (typeof RP_VERSION !== 'undefined' ? RP_VERSION : ''),
+      names: plan && plan.people ? { dale: plan.people.dale.name, sue: plan.people.sue.name } : undefined };
+    return file;
+  }
+  async function unlock(file, who, secret) {
+    if (!file || file.format !== 'retirement-plan') throw new Error('This is not a Retirement Planner file.');
+    var slot = file.slots[who];
+    if (!slot) throw new Error(who === 'sue' ? "This person's password hasn't been set yet – the admin can set it under Users & passwords." : 'No access set up for this user.');
+    var dataKey;
+    try { dataKey = await openSlot(slot, who === 'recovery' ? normRecovery(secret) : secret); }
+    catch (e) { throw new Error(who === 'recovery' ? 'That recovery key is not right.' : 'Wrong password.'); }
+    var plan = await decryptData(dataKey, file.data);
+    return { plan: plan, dataKey: dataKey };
+  }
+  async function setSlot(file, dataKey, who, secret) { file.slots[who] = await makeSlot(dataKey, who === 'recovery' ? normRecovery(secret) : secret); }
+  async function removeSlot(file, who) { delete file.slots[who]; }
+  async function selfTest() {
+    var r = await create({ hello: 'world' }, { dale: 'a', sue: 'b' }, 'dale');
+    var u1 = await unlock(r.file, 'sue', 'b');
+    var u2 = await unlock(r.file, 'recovery', r.recoveryKey.toLowerCase());
+    var bad = false; try { await unlock(r.file, 'dale', 'x'); } catch (e) { bad = true; }
+    return u1.plan.hello === 'world' && u2.plan.hello === 'world' && bad;
+  }
+  return { create: create, seal: seal, unlock: unlock, setSlot: setSlot, removeSlot: removeSlot, newRecoveryKey: newRecoveryKey, selfTest: selfTest, ITER: ITER };
+})();
+
+/* File access: File System Access API where available (Edge/Chrome), download fallback otherwise */
+var Files = (function () {
+  'use strict';
+  var handle = null, lastModified = 0, fileName = 'Retirement-Plan.rplan';
+  var canPick = typeof window !== 'undefined' && 'showOpenFilePicker' in window;
+  var types = [{ description: 'Retirement plan', accept: { 'application/json': ['.rplan'] } }];
+
+  function idb() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open('retirement-planner', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+      r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    });
+  }
+  async function remember(h) { try { var db = await idb(); db.transaction('kv', 'readwrite').objectStore('kv').put(h, 'lastHandle'); } catch (e) {} }
+  async function recall() {
+    try {
+      var db = await idb();
+      return await new Promise(function (res) { var q = db.transaction('kv').objectStore('kv').get('lastHandle'); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; });
+    } catch (e) { return null; }
+  }
+  async function readHandle(h) {
+    if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+      if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Permission to open the file was not given.');
+    }
+    var f = await h.getFile();
+    handle = h; lastModified = f.lastModified; fileName = f.name;
+    return JSON.parse(await f.text());
+  }
+  async function openPicker() {
+    if (canPick) {
+      var hs = await window.showOpenFilePicker({ types: types, multiple: false });
+      var obj = await readHandle(hs[0]); remember(hs[0]); return obj;
+    }
+    return new Promise(function (res, rej) {
+      var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '*/*'; /* any file: phones don't know the .rplan type and would grey it out */
+      inp.style.display = 'none'; document.body.appendChild(inp); setTimeout(function () { inp.remove(); }, 600000);
+      inp.onchange = function () {
+        var f = inp.files[0]; if (!f) return rej(new Error('No file chosen'));
+        fileName = f.name; handle = null;
+        f.text().then(function (t) { try { res(JSON.parse(t)); } catch (e) { rej(new Error('That file is not a Retirement Planner plan (.rplan).')); } }, rej);
+      };
+      inp.click();
+    });
+  }
+  async function reopenLast() { var h = await recall(); if (!h) return null; return readHandle(h); }
+  async function lastName() { var h = await recall(); return h ? h.name : null; }
+  async function changedOnDisk() {
+    if (!handle) return false;
+    try { var f = await handle.getFile(); return f.lastModified > lastModified + 1000; } catch (e) { return false; }
+  }
+  async function readCurrent() { var f = await handle.getFile(); return JSON.parse(await f.text()); }
+  async function save(obj, saveAs) {
+    var text = JSON.stringify(obj);
+    if (canPick && (saveAs || !handle)) {
+      handle = await window.showSaveFilePicker({ suggestedName: fileName, types: types });
+      remember(handle);
+    }
+    if (handle) {
+      var w = await handle.createWritable(); await w.write(text); await w.close();
+      var f = await handle.getFile(); lastModified = f.lastModified; fileName = f.name;
+      return { mode: 'file', name: fileName };
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+    return { mode: 'download', name: fileName };
+  }
+  function download(name, text, mime) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: mime || 'text/plain' }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  return { openPicker: openPicker, reopenLast: reopenLast, lastName: lastName, save: save, changedOnDisk: changedOnDisk, readCurrent: readCurrent,
+    download: download, canPick: canPick, name: function () { return fileName; }, hasHandle: function () { return !!handle; } };
+})();
+
+/* Help guide content (plain HTML, no figures) */
+var RP_HELP = [
+ ['whatsnew', "What's new & versions", (function () {
+   return '<p>You are using <b>Retirement Planner v' + RP_VERSION + '</b>. The version is shown on the login screen and in the top bar. The file name ends with the version – this copy is <b>Retirement-Planner-v' + RP_VERSION + '.html</b>. When a new version arrives, put it in the shared OneDrive folder and <b>delete the older Retirement-Planner-v… files</b> (and the copy on any phone) so nobody opens an old one. Your plan file stays the same – every version opens it. If a plan was saved with a newer version, the planner warns you before you make changes.</p>' +
+     RP_CHANGES.map(function (c) { return '<p><b>v' + c[0] + '</b> <span style="color:var(--muted)">' + c[1] + '</span></p><ul>' + c[2].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>'; }).join('');
+ })()],
+ ['start', 'Getting started (first time)', `
+<p>There are two ways to open the planner – both use the same plan file in your shared OneDrive folder:</p>
+<ul>
+<li><b>Web address</b> (computers, phones and tablets): open {URL} in Chrome, Edge or Safari. Bookmark it or add it to your home screen.</li>
+<li><b>Planner file</b> (computers only): double-click <b>Retirement-Planner-v….html</b> (the highest version number) in OneDrive. If it opens in the wrong program, right-click › <b>Open with</b> › <b>Microsoft Edge</b> or <b>Google Chrome</b>.</li>
+</ul>
+<p><b>Creating the plan (once, by the admin):</b></p>
+<ol>
+<li>Click <b>Create a new plan</b>, enter both first names, dates of birth and planned retirement dates, and choose passwords (8+ characters). The second password can be set later.</li>
+<li>A <b>recovery key</b> appears. Write it down or print it and keep it somewhere safe – <b>not</b> in OneDrive. Tick the box.</li>
+<li>Save the plan file (e.g. <b>Retirement-Plan.rplan</b>) into your shared OneDrive folder.</li>
+<li>Fill in the Budget, Income &amp; Tax and Savings &amp; Super tabs, then Save.</li>
+</ol>
+<p><b>Everyone after that:</b> open the planner, click <b>Choose plan file…</b>, pick the plan file from OneDrive, select your name and enter your password.</p>`],
+ ['daily', 'Opening, saving and locking', `
+<ul>
+<li><b>Open:</b> double-click the <b>Retirement-Planner-v….html</b> file with the highest version number. After the first time it offers <b>Open Retirement-Plan.rplan</b> – click it, choose your name, enter your password. The browser may ask to allow access to the file – click <b>Allow</b>/<b>Edit files</b>.</li>
+<li><b>Save:</b> click <b>Save</b> (top right) or press <b>Ctrl+S</b>. The status turns yellow – <i>Unsaved changes</i> – until you do. The browser warns you if you close with unsaved changes.</li>
+<li><b>If you both edit at once:</b> when you save, the app checks whether the other person saved in the meantime and asks: <b>OK</b> keeps your version, <b>Cancel</b> loads theirs. Easiest is to agree that one person edits at a time.</li>
+<li><b>Lock:</b> the padlock button locks the plan straight away. It also locks itself after 15 minutes idle (change this under <i>Users &amp; passwords</i>) and saves first if needed.</li>
+<li><b>If Save downloads a file instead</b> (Safari, or a browser setting): move the downloaded <b>Retirement-Plan.rplan</b> into the OneDrive folder, replacing the old one.</li>
+</ul>`],
+ ['top', 'The top bar: views and Separate vs Pooled', `
+<ul>
+<li><b>Household / {P1} / {P2}</b> changes whose figures are shown on the Dashboard, Budget, Income &amp; Tax and Savings screens. It doesn't change any numbers.</li>
+<li><b>Separate</b>: each of you pays your own share of spending from your own money. Shows how long each person's money lasts on its own.</li>
+<li><b>Pooled</b>: one shared pot – if one of you runs short, the other tops up. The Dashboard shows who tops up whom.</li>
+</ul>`],
+ ['dash', 'Dashboard', `
+<ul>
+<li><b>Net worth today</b> – all accounts, including any defined benefit estimate.</li>
+<li><b>Money lasts until</b> – the ages you'll both be when the money runs out (or "Beyond 100").</li>
+<li><b>Retirement spend</b> – the combined yearly amount, each person's share, and the most you could spend and still last to the "plan to" age (95).</li>
+<li><b>Projected balances</b> – hover over a bar to see each person's balance that year. Dashed lines mark retirements.</li>
+<li><b>Retirement income – combined and split</b> – for the first full year you're both retired: what each of you spends and where it comes from (super, Age Pension, cash). Change the split here.</li>
+<li><b>Milestones</b> and the <b>Separate vs pooled</b> comparison sit at the bottom.</li>
+</ul>`],
+ ['budget', 'Budget – adding, changing and deleting expenses', `
+<ul>
+<li><b>Change an amount:</b> type in <b>Weekly</b>, <b>Monthly</b> or <b>Yearly</b> – the others update when you press Tab or click away.</li>
+<li><b>In retirement /yr:</b> leave blank if it stays the same; enter a new amount if it changes; enter <b>0</b> if it stops (e.g. work costs).</li>
+<li><b>Owner:</b> {P1}, {P2} or Shared. For Shared, the % is <b>{P1}'s</b> share (50 = half each). Enter the <b>full</b> bill.</li>
+<li><b>Add:</b> <b>+ Add</b> beside a category, or <b>+ Add expense</b> at the top for a new category. Then type the name and amount.</li>
+<li><b>Move</b> an item to another category with the drop-down on the right; <b>delete</b> with the red bin (it asks first).</li>
+<li><b>One-off future costs:</b> cars, trips, renovations. Enter the year, cost in today's dollars, and "repeat every" years (0 = once).</li>
+<li><b>In retirement, base spending on:</b> either one <b>combined yearly amount</b> (e.g. $120,000 split 50/50) or the <b>In retirement</b> column. Before each person retires, the <b>Now</b> amounts are used.</li>
+</ul>`],
+ ['tax', 'Income & Tax', `
+<ul>
+<li>Pick a financial year at the top to see that year's income and tax.</li>
+<li><b>Income streams:</b> add, edit or delete. Types:
+  <ul><li><b>Work (to retirement)</b> – consulting, salary; stops automatically at the retirement date.</li>
+  <li><b>Other taxable</b> – e.g. rent, part-time work after retiring (set From/To dates).</li>
+  <li><b>Tax-free</b> – e.g. a gift or inheritance.</li></ul></li>
+<li>Interest, dividends and franking come from <b>Savings &amp; Super</b> automatically – don't add them here.</li>
+<li><b>Tax by bracket</b> shows how the tax is worked out, the effective rate and the rate on your next dollar.</li>
+<li><b>Deductible super contributions</b>: enter a yearly amount to see the tax saving. Check caps with your accountant.</li>
+</ul>`],
+ ['savings', 'Savings & Super', `
+<ul>
+<li><b>+ Add account</b> under {P1}, {P2} or Joint. Choose the type: Cash, Super – accumulation, Super – pension, Shares, Crypto or Defined benefit.</li>
+<li>Update <b>balances</b> every few months, then press <b>Record today's balances</b> to add a dated row to the history.</li>
+<li><b>Rate now</b> (cash) is used for this year's interest; later years use the long-run rate on Assumptions.</li>
+<li><b>Joint accounts</b> are split 50/50 and only counted if "In forecast" is ticked.</li>
+<li><b>Defined benefit</b> (e.g. QSuper): the <b>Benefit amount</b> overrides the formula. When the statement arrives, enter the real amount – or clear it and enter the <b>multiple</b> and <b>final salary</b>. Choose whether it goes to a pension, cash or a mix when she leaves.</li>
+</ul>`],
+ ['forecast', 'Forecast & Scenarios – testing "what ifs"', `
+<ul>
+<li>Use the <b>Combined / {P1} / {P2}</b> switch (top right) to see the comparison, chart and year-by-year table for the household or for each of you. The person views show income, super drawdowns, Age Pension, tax, spending, balances and any top-ups between you.</li>
+<li><b>Base plan</b> is your real plan – changing it here changes the plan everywhere.</li>
+<li><b>+ New scenario</b> or the copy button makes a "what if" (e.g. <i>Retire at 58</i>, <i>Spend $140k</i>). Click its name to edit: retirement dates, spending, split, returns, inflation, and a <b>market fall</b> test in {P1}'s retirement year.</li>
+<li>Tick <b>two</b> scenarios to compare them side by side.</li>
+<li>The <b>year by year</b> table shows spending, tax, Age Pension and balances; red rows mean the money has run out.</li>
+<li><b>Export to Excel (CSV)</b> saves the year-by-year figures to open in Excel.</li>
+</ul>`],
+ ['assumptions', 'Assumptions ({P1} only)', `
+<ul>
+<li>Inflation, interest and super returns, tax brackets, super rules, Age Pension limits and the "plan to" age.</li>
+<li><b>Check each July</b> (new tax year) and after Age Pension changes in March and September. Each section shows when it was last updated.</li>
+<li><b>Reset to defaults</b> restores the built-in values only – your accounts, budget and income stay as they are.</li>
+<li>{P2} can see these but not change them.</li>
+</ul>`],
+ ['users', 'Passwords, recovery key and access', `
+<ul>
+<li><b>Change my password:</b> <i>Users &amp; passwords</i> › enter it twice › <b>Change password</b> › <b>Save</b>.</li>
+<li><b>{P2} forgot their password:</b> {P1} logs in › <i>Users &amp; passwords</i> › set a new one for {P2} › <b>Save</b>.</li>
+<li><b>{P1} forgot his password:</b> on the login screen click <b>Forgot password? Use recovery key</b>, type the key, then set a new password and <b>Save</b>.</li>
+<li><b>New recovery key:</b> {P1} can create one any time; the old key stops working after you Save.</li>
+<li>If both {P1}'s password and the recovery key are lost, the plan cannot be opened by anyone – that's what keeps it private.</li>
+</ul>`],
+ ['security', 'How your information is protected', `
+<ul>
+<li>Everything is worked out inside your browser. The app is blocked from connecting to the internet.</li>
+<li>The plan file is encrypted (AES-256). OneDrive only ever stores the locked file – without a password it's unreadable.</li>
+<li>{P1} and {P2} each have their own password; {P1} is the admin.</li>
+<li>Don't save passwords in the browser on shared computers, and keep the recovery key offline.</li>
+<li>Back-up: OneDrive keeps previous versions (right-click the file › <i>Version history</i>). <b>Save a copy as…</b> under <i>Users &amp; passwords</i> makes a dated copy.</li>
+</ul>`],
+ ['yearly', 'Suggested routine', `
+<ul>
+<li><b>Every 3 months:</b> update balances on Savings &amp; Super › <b>Record today's balances</b> › Save.</li>
+<li><b>When things change:</b> new expenses, income, retirement dates, defined benefit statement figures.</li>
+<li><b>Each July:</b> review Assumptions (tax rates, super rules), then check the Dashboard.</li>
+<li><b>Before big decisions:</b> make a scenario and compare it with the Base plan.</li>
+</ul>`],
+ ['trouble', 'Troubleshooting', `
+<ul>
+<li><b>"Wrong password"</b> – check Caps Lock and that the right name ({P1}/{P2}) is selected.</li>
+<li><b>Nothing happens / blank page</b> – open it in Edge or Chrome, not Internet Explorer or a preview pane.</li>
+<li><b>"Open Retirement-Plan.rplan" doesn't work</b> – use <b>Choose plan file…</b> and pick it from the OneDrive folder.</li>
+<li><b>OneDrive shows a conflict copy</b> (e.g. <i>Retirement-Plan-DESKTOP.rplan</i>) – you both saved at once. Open each, keep the right one, delete the other.</li>
+<li><b>Figures look odd</b> – check retirement dates, the "In retirement" column (blank vs 0), and the Assumptions page.</li>
+<li><b>Phones and tablets</b> (iPhone, iPad, Android, Samsung tablets) – use the <b>web address</b>: {URL}. Opening the planner <i>file</i> on a phone or tablet doesn't work: it shows as a preview with dead buttons, or every file is greyed out when choosing the plan.
+  <ul><li>Open the web address in Chrome or Safari, tap <b>Choose plan file…</b>, then pick the plan file from <b>OneDrive</b> (tap ☰ or <i>Browse</i> if it isn't listed).</li>
+  <li><b>Add to home screen</b> (Safari: Share › Add to Home Screen; Chrome: ⋮ › Add to home screen) to open it like an app.</li>
+  <li>Saving on a phone or tablet downloads a new copy of the plan file, which then has to be moved back into OneDrive (replacing the old one). Easiest: <b>look</b> on the phone or tablet, <b>edit</b> on a computer.</li></ul></li>
+</ul>`],
+ ['terms', 'Glossary', `
+<dl>
+<dt>Accumulation (super)</dt><dd>Super while you're still working or under 60 – earnings taxed at 15%.</dd>
+<dt>Pension phase / account-based pension</dt><dd>Super paying you an income after retirement – tax-free from 60, with a minimum yearly withdrawal (4% under 65, 5% from 65, rising with age).</dd>
+<dt>Defined benefit</dt><dd>A scheme such as QSuper's – a set amount worked out as multiple × final salary, not based on market returns.</dd>
+<dt>Preservation age</dt><dd>60 – the age super can be accessed once retired.</dd>
+<dt>Marginal rate</dt><dd>The tax rate on your next dollar of income (includes the 2% Medicare levy).</dd>
+<dt>Effective rate</dt><dd>Total tax ÷ taxable income.</dd>
+<dt>Franking credits</dt><dd>Tax already paid by a company on dividends – refunded or used to reduce your tax.</dd>
+<dt>Age Pension assets/income tests</dt><dd>Centrelink checks both and pays the lower result. Your home isn't counted.</dd>
+<dt>Today's dollars vs future dollars</dt><dd>Today's dollars remove inflation, so $120k means what $120k buys now. Charts and tables show future dollars.</dd>
+</dl>`],
+ ['limits', "What the planner doesn't do", `
+<ul>
+<li>Capital gains tax when selling shares or crypto, the seniors tax offset, Division 293 tax, aged care costs and estate planning aren't modelled.</li>
+<li>Returns are the same every year (apart from the market-fall test). Real markets go up and down.</li>
+<li>Age Pension figures are estimates – check with Services Australia closer to 67.</li>
+<li>This is a planning tool, not financial or tax advice. Run big decisions past a licensed adviser or accountant.</li>
+</ul>`]
+];
+if (typeof module !== 'undefined') module.exports = RP_HELP;
+
+/* Retirement Planner – user interface */
+(function () {
+  'use strict';
+  var S = { file: null, dataKey: null, plan: null, user: null, view: 'household', tab: 'dashboard', dirty: false,
+    scen: 'base', taxFY: null, lastSaved: null, lockMins: 15, stage: 'file', createMode: false, recovery: false, err: '' };
+  var app = document.getElementById('app');
+  var C = null; // computed results for current render
+
+  /* ---------- helpers ---------- */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function money(n, dp) { if (n == null || isNaN(n)) return '–'; var neg = n < 0; n = Math.abs(n); return (neg ? '−$' : '$') + n.toLocaleString('en-AU', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }); }
+  function kM(n) { if (n == null || isNaN(n)) return '–'; var a = Math.abs(n), s = n < 0 ? '−$' : '$'; if (a >= 1e6) return s + (a / 1e6).toFixed(2) + 'M'; if (a >= 1e3) return s + Math.round(a / 1e3) + 'k'; return s + Math.round(a); }
+  function pct(x, dp) { return (x * 100).toFixed(dp == null ? 1 : dp) + '%'; }
+  function uid() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function dfmt(s) { if (!s) return '–'; var d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function mfmt(s) { if (!s) return '–'; var d = new Date(s + 'T00:00:00'); return d.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' }); }
+  function isAdmin() { return S.user === 'dale' || S.user === 'recovery'; }
+  function pname(w) {
+    if (w === 'joint') return 'Joint'; if (w === 'shared') return 'Shared';
+    if (S.plan) return S.plan.people[w].name;
+    var n = S.file && S.file.meta && S.file.meta.names; return (n && n[w]) || (w === 'dale' ? 'Partner 1' : 'Partner 2');
+  }
+  function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 3200); }
+  var ICON = {
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
+  };
+  function delBtn(act, id, label) { return '<button class="ibtn del" data-act="' + act + '" data-id="' + esc(id) + '" aria-label="' + esc(label || 'Delete') + '" title="' + esc(label || 'Delete') + '">' + ICON.del + '</button>'; }
+
+  /* ---------- binding: data-bind="list:id:field" or "a.b.c"; data-type money|pct|num|text|date|bool ---------- */
+  function getPath(path) {
+    var p = S.plan;
+    if (path.indexOf(':') > 0) { var q = path.split(':'); var it = p[q[0]].filter(function (x) { return x.id === q[1]; })[0]; return it ? it[q[2]] : undefined; }
+    return path.split('.').reduce(function (o, k) { return o == null ? o : o[k]; }, p);
+  }
+  function setPath(path, v) {
+    var p = S.plan;
+    if (path.indexOf(':') > 0) { var q = path.split(':'); var it = p[q[0]].filter(function (x) { return x.id === q[1]; })[0]; if (it) it[q[2]] = v; return; }
+    var ks = path.split('.'), o = p;
+    for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]];
+    o[ks[ks.length - 1]] = v;
+  }
+  function parseVal(raw, type) {
+    if (type === 'text' || type === 'date' || type === 'sel') return raw;
+    if (type === 'bool') return !!raw;
+    var s = String(raw).replace(/[$,\s%]/g, '');
+    if (s === '') return type === 'optmoney' ? '' : 0;
+    var n = parseFloat(s); if (isNaN(n)) n = 0;
+    if (type === 'pct') return n / 100;
+    return n;
+  }
+  function showVal(v, type) {
+    if (type === 'pct') return v == null || v === '' ? '' : +(v * 100).toFixed(3);
+    if (type === 'money' || type === 'optmoney') return v === '' || v == null ? '' : (+v).toLocaleString('en-AU', { maximumFractionDigits: 2 });
+    return v == null ? '' : v;
+  }
+  function inp(path, type, cls, extra) {
+    var v = getPath(path), ro = (extra && extra.ro) ? ' disabled' : '';
+    var t = type === 'date' ? 'date' : 'text';
+    var mode = (type === 'money' || type === 'optmoney' || type === 'num' || type === 'pct') ? ' inputmode="decimal"' : '';
+    var al = extra && extra.label ? ' aria-label="' + esc(extra.label) + '"' : '';
+    var ph = extra && extra.ph ? ' placeholder="' + esc(extra.ph) + '"' : '';
+    return '<input class="in ' + (cls || '') + ((type === 'money' || type === 'optmoney' || type === 'num' || type === 'pct') ? ' num' : '') + '" type="' + t + '" data-bind="' + esc(path) + '" data-type="' + type + '" value="' + esc(showVal(v, type)) + '"' + mode + al + ph + ro + '>';
+  }
+  function sel(path, opts, cls, extra) {
+    var v = getPath(path), ro = (extra && extra.ro) ? ' disabled' : '';
+    var al = extra && extra.label ? ' aria-label="' + esc(extra.label) + '"' : '';
+    return '<select class="in ' + (cls || '') + '" data-bind="' + esc(path) + '" data-type="sel"' + al + ro + '>' + opts.map(function (o) {
+      return '<option value="' + esc(o[0]) + '"' + (String(o[0]) === String(v) ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
+    }).join('') + '</select>';
+  }
+  function markDirty() { S.dirty = true; }
+
+  /* ---------- compute ---------- */
+  function compute() {
+    var plan = S.plan, today = new Date();
+    var pooled = RPE.project(plan, { today: today, scenario: { pooled: true } });
+    var separate = RPE.project(plan, { today: today, scenario: { pooled: false } });
+    var base = plan.settings.pooled ? pooled : separate;
+    var fy0 = RPE.fyOf(today);
+    var full = RPE.project(plan, { today: new Date(fy0 - 1, 6, 1), scenario: {} });
+    var sust = RPE.sustainableSpend(plan, { today: today });
+    return { today: today, pooled: pooled, separate: separate, base: base, full: full, sust: sust, nw: RPE.netWorth(plan), bt: RPE.budgetTotals(plan) };
+  }
+  function lastsText(l, w) {
+    if (!l) return '100+';
+    return w === 'household' ? pname('dale') + ' ' + l.ageDale : String(l.age);
+  }
+
+  /* ---------- top-level render ---------- */
+  function render() {
+    if (!S.plan) return renderLock();
+    C = compute();
+    var y = window.scrollY;
+    var tabs = [['dashboard', 'Dashboard'], ['budget', 'Budget'], ['tax', 'Income & Tax'], ['savings', 'Savings & Super'], ['forecast', 'Forecast & Scenarios'], ['assumptions', 'Assumptions'], ['users', 'Users & passwords'], ['help', 'Help guide']];
+    var who = S.user === 'recovery' ? pname('dale') + ' (recovery)' : pname(S.user) + (S.user === 'dale' ? ' (admin)' : '');
+    var h = '<header class="top"><div class="brand">Retirement Planner</div><div class="file">' + esc(Files.name()) + ' · v' + RP_VERSION + '</div><div class="grow"></div>' +
+      '<div class="seg" role="group" aria-label="View">' + [['household', 'Household'], ['dale', pname('dale')], ['sue', pname('sue')]].map(function (v) {
+        return '<button data-act="view" data-id="' + v[0] + '" class="' + (S.view === v[0] ? 'on' : '') + '">' + esc(v[1]) + '</button>'; }).join('') + '</div>' +
+      '<div class="seg" role="group" aria-label="Funding mode"><button data-act="pooled" data-id="0" class="' + (!S.plan.settings.pooled ? 'on' : '') + '" title="Each person pays their own share from their own money">Separate</button><button data-act="pooled" data-id="1" class="' + (S.plan.settings.pooled ? 'on' : '') + '" title="One shared pot – either partner covers the other">Pooled</button></div>' +
+      '<div class="status' + (S.dirty ? ' dirty' : '') + '">' + (S.dirty ? 'Unsaved changes' : (S.lastSaved ? 'Saved ' + S.lastSaved : 'Opened')) + ' · ' + esc(who) + '</div>' +
+      '<button class="tbtn' + (S.dirty ? ' primary' : '') + '" data-act="save">Save</button>' +
+      '<button class="tbtn" data-act="lock" aria-label="Lock plan" title="Lock">' + ICON.lock + '</button></header>';
+    h += '<div class="wrap"><nav class="side" aria-label="Sections">' + tabs.map(function (t) {
+      return '<button data-act="tab" data-id="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + esc(t[1]) + '</button>'; }).join('') + '</nav><main>';
+    h += ({ dashboard: vDashboard, budget: vBudget, tax: vTax, savings: vSavings, forecast: vForecast, assumptions: vAssumptions, users: vUsers, help: vHelp })[S.tab]();
+    h += '</main></div>';
+    app.innerHTML = h;
+    window.scrollTo(0, y);
+    afterRender();
+  }
+
+  function whoList() { return S.view === 'household' ? ['dale', 'sue'] : [S.view]; }
+
+  /* ---------- Dashboard ---------- */
+  function vDashboard() {
+    var p = S.plan, P = p.people, nw = C.nw, base = C.base, sep = C.separate, pool = C.pooled;
+    var h = '<div class="head"><h1>' + (S.view === 'household' ? 'Household overview' : esc(pname(S.view)) + "'s overview") + '</h1><span class="sub">' + (p.settings.pooled ? 'Pooled' : 'Separate') + ' · amounts in today\'s dollars unless shown</span></div>';
+    if (p.assumptions.reviewDue && new Date(p.assumptions.reviewDue) <= new Date()) h += '<div class="note">Assumptions review is due – check tax rates and Age Pension limits on the Assumptions screen.</div>';
+    var nwv = S.view === 'household' ? nw.total : nw[S.view] + nw.joint / 2;
+    var dbNote = nw.dbEstimate ? ' (incl. defined benefit ' + kM(nw.dbEstimate) + ')' : '';
+    var fy0 = C.full.rows[0], taxD = fy0.p.dale.taxPaid, taxS = fy0.p.sue.taxPaid;
+    var lastP = pool.lasts.household, lD = sep.lasts.dale, lS = sep.lasts.sue;
+    var lastMain, lastSub;
+    if (S.view === 'household') {
+      lastMain = p.settings.pooled ? (lastP ? esc(pname('dale')) + ' ' + lastP.ageDale + ' / ' + esc(pname('sue')) + ' ' + lastP.ageSue : 'Beyond 100') : (esc(pname('dale')) + ' ' + (lD ? lD.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (lS ? lS.age : '100+'));
+      lastSub = p.settings.pooled ? 'Separate: ' + esc(pname('dale')) + ' ' + (lD ? lD.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (lS ? lS.age : '100+') : 'Pooled: ' + (lastP ? esc(pname('dale')) + ' ' + lastP.ageDale : 'beyond 100');
+    } else {
+      var l = sep.lasts[S.view]; lastMain = l ? 'Age ' + l.age : 'Beyond 100'; lastSub = 'Paying own share (separate)';
+    }
+    var dR = new Date(P.dale.retireDate + 'T00:00:00'), now = new Date();
+    var months = Math.max(0, (dR.getFullYear() - now.getFullYear()) * 12 + dR.getMonth() - now.getMonth());
+    var split = C.base.splitPct;
+    h += '<div class="grid">' +
+      kpi('Net worth today', kM(nwv), S.view === 'household' ? esc(pname('dale')) + ' ' + kM(nw.dale) + ' · ' + esc(pname('sue')) + ' ' + kM(nw.sue) + dbNote : dbNote.replace(/^ \(|\)$/g, '')) +
+      kpi('Money lasts until', lastMain, lastSub, true) +
+      kpi(esc(pname('dale')) + ' retires', mfmt(P.dale.retireDate), 'Age ' + RPE.ageAt(new Date(P.dale.dob + 'T00:00:00'), dR) + (months > 0 ? ' · ' + Math.floor(months / 12) + ' yrs ' + (months % 12) + ' mths to go' : ' · retired') + '<br>' + esc(pname('sue')) + ': ' + mfmt(P.sue.retireDate)) +
+      kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
+      kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) +
+      '</div>';
+    h += '<section class="card" aria-labelledby="chT"><div class="row"><h2 id="chT">Projected balances</h2><div class="legend">' +
+      (whoList().indexOf('dale') >= 0 ? '<span><span class="sw" style="background:var(--dale)"></span>' + esc(pname('dale')) + '</span>' : '') +
+      (whoList().indexOf('sue') >= 0 ? '<span><span class="sw" style="background:var(--sue)"></span>' + esc(pname('sue')) + '</span>' : '') +
+      '</div><span class="sub ml">Future dollars · ' + pct(p.assumptions.superReturn) + ' super, ' + pct(p.assumptions.cashRate) + ' cash, ' + pct(p.assumptions.inflation) + ' inflation · table view on Forecast</span></div>' +
+      '<div class="chart" id="chart">' + chartSVG(base) + '</div></section>';
+    h += splitPanel();
+    // milestones + separate vs pooled
+    var ev = [];
+    base.rows.forEach(function (r) { r.events.forEach(function (e) { if (ev.length < 9) ev.push({ fy: r, e: e }); }); });
+    h += '<div class="grid2"><section class="card"><h2>Milestones</h2>' + ev.map(function (x) {
+      return '<div class="ms"><b>' + esc(x.fy.label) + '</b><span>' + esc(x.e.text) + '</span></div>'; }).join('') + '</section>';
+    var trans = 0, tf = { dale: 0, sue: 0 };
+    pool.rows.forEach(function (r) { r.transfers.forEach(function (t) { trans += t.amount; tf[t.from] += t.amount; }); });
+    h += '<section class="card"><h2>Separate vs pooled</h2><div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">' +
+      '<div class="card" style="padding:14px' + (!p.settings.pooled ? ';border:2px solid var(--ink)' : '') + '"><div class="k-sub">Separate – each pays own share</div><div><b class="dale">' + esc(pname('dale')) + '</b> lasts to ' + (lD ? lD.age : '100+') + '</div><div><b class="sue">' + esc(pname('sue')) + '</b> lasts to ' + (lS ? lS.age : '100+') + '</div></div>' +
+      '<div class="card" style="padding:14px' + (p.settings.pooled ? ';border:2px solid var(--ink)' : '') + '"><div class="k-sub">Pooled – shared pot</div><div>Household lasts to ' + (lastP ? esc(pname('dale')) + ' ' + lastP.ageDale : 'beyond 100') + '</div><div class="k-sub">' + (trans > 0 ? (tf.dale >= tf.sue ? esc(pname('dale')) + ' tops up ' + esc(pname('sue')) : esc(pname('sue')) + ' tops up ' + esc(pname('dale'))) + ' ' + kM(trans) + ' in total' : 'No top-ups needed') + '</div></div></div>' +
+      taxTip() + '</section></div>';
+    return h;
+  }
+  function kpi(lab, val, sub, dark) {
+    return '<div class="card' + (dark ? ' dark' : '') + '" style="gap:4px"><div class="k-lab">' + lab + '</div><div class="k-val">' + val + '</div><div class="k-sub">' + (sub || '') + '</div></div>';
+  }
+  function taxTip() {
+    var r = C.base.rows.filter(function (x) { return x.p.sue.retired && x.p.dale.workFrac > 0.5; })[0];
+    if (!r) return '';
+    var md = r.p.dale.tax.marginal, ms = r.p.sue.tax.marginal;
+    if (md - ms < 0.1) return '';
+    return '<div class="tip"><b>Tip:</b> in ' + r.label + ' interest is taxed at about ' + pct(ms, 0) + ' in ' + esc(pname('sue')) + "'s name vs " + pct(md, 0) + ' in ' + esc(pname('dale')) + "'s. Worth checking with your accountant which name holds the cash.</div>";
+  }
+  function splitPanel() {
+    var p = S.plan, rows = C.base.rows;
+    var both = rows.filter(function (r) { return r.p.dale.workFrac === 0 && r.p.sue.workFrac === 0 && r.frac > 0.99; })[0];
+    if (!both) return '';
+    function col(w) {
+      var R = both.p[w], need = R.spend + R.oneOff, sup = R.fromSuper, ap = R.income.agePension, other = R.income.work + R.income.other + R.income.taxFree;
+      var cash = need + R.taxPaid - sup - ap - other;
+      return { need: need, sup: sup, ap: ap, other: other, cash: cash, tax: R.taxPaid };
+    }
+    var d = col('dale'), s = col('sue');
+    var l = C.separate.lasts, lp = C.pooled.lasts.household;
+    function tr(lab, f, strong) { return '<tr' + (strong ? ' class="tot"' : '') + '><th scope="row">' + lab + '</th><td class="num">' + f(d) + '</td><td class="num">' + f(s) + '</td><td class="num">' + f({ need: d.need + s.need, sup: d.sup + s.sup, ap: d.ap + s.ap, other: d.other + s.other, cash: d.cash + s.cash, tax: d.tax + s.tax }) + '</td></tr>'; }
+    var h = '<section class="card"><div class="row"><h2>Retirement income – combined and split</h2><span class="sub">First full year you\'re both retired: ' + both.label + ' (future dollars)</span>' +
+      '<label class="row ml" style="gap:8px;font-size:14px;flex-wrap:nowrap">Split ' + sel('settings.splitMode', [['percent', 'By percentage'], ['budget', "By each person's budget"]], 'w200', { label: 'Split method' }) +
+      (p.settings.splitMode === 'percent' ? inp('settings.splitPct', 'num', 'w70', { label: esc(pname('dale')) + ' share %' }) + '% ' + esc(pname('dale')) : '') + '</label></div>' +
+      '<div class="tw" style="border:0"><table><thead><tr><th>Per year</th><th class="num dale">' + esc(pname('dale')) + '</th><th class="num sue">' + esc(pname('sue')) + '</th><th class="num">Combined</th></tr></thead><tbody>' +
+      tr('Spending to cover', function (x) { return kM(x.need); }, true) +
+      tr('From super pension (tax-free)', function (x) { return kM(x.sup); }) +
+      tr('From Age Pension', function (x) { return kM(x.ap); }) +
+      tr('From other income', function (x) { return kM(x.other); }) +
+      tr('From cash savings & interest', function (x) { return kM(x.cash); }) +
+      tr('Tax payable', function (x) { return kM(x.tax); }) +
+      '<tr class="tot"><th scope="row">Money lasts until</th><td class="num">' + (l.dale ? 'Age ' + l.dale.age : '100+') + '</td><td class="num">' + (l.sue ? 'Age ' + l.sue.age : '100+') + '</td><td class="num">' + (lp ? esc(pname('dale')) + ' ' + lp.ageDale : 'Beyond 100') + '</td></tr>' +
+      '</tbody></table></div></section>';
+    return h;
+  }
+  function chartSVG(res) {
+    var rows = res.rows.filter(function (r) { return r.p.dale.age <= S.plan.assumptions.planToAge + 3; });
+    var W = 1000, H = 330, padL = 56, padB = 34, padT = 40, ws = whoList();
+    var max = 0;
+    rows.forEach(function (r) { var t = 0; ws.forEach(function (w) { t += r.p[w].total; }); if (t > max) max = t; });
+    if (max <= 0) max = 1;
+    var step = Math.pow(10, Math.floor(Math.log10(max))); var nice = Math.ceil(max / step) * step; if (nice / step < 3) { step /= 2; }
+    var lab = 0;
+    var bw = (W - padL - 10) / rows.length, gap = Math.max(1, Math.min(4, bw * 0.2));
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Projected balances by year"><g font-size="11" fill="#5B6672">';
+    for (var v = 0; v <= nice + 1; v += step) {
+      var yy = padT + (H - padT - padB) * (1 - v / nice);
+      s += '<line x1="' + padL + '" x2="' + (W - 6) + '" y1="' + yy + '" y2="' + yy + '" stroke="#E3E7EC"/><text x="' + (padL - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + kM(v) + '</text>';
+    }
+    rows.forEach(function (r, i) {
+      var x = padL + i * bw + gap / 2, y0 = H - padB, segs = [];
+      ws.forEach(function (w) { segs.push([w, r.p[w].total]); });
+      var tip = r.label + ' · ' + ws.map(function (w) { return pname(w) + ' ' + kM(r.p[w].total) + ' (age ' + r.p[w].age + ')'; }).join(' · ');
+      segs.forEach(function (sg, j) {
+        var hh = (H - padT - padB) * sg[1] / nice; if (hh <= 0) return;
+        var top = j === segs.length - 1 || segs.slice(j + 1).every(function (q) { return q[1] <= 0; });
+        y0 -= hh;
+        var col = sg[0] === 'dale' ? '#2457C5' : '#E8913A';
+        s += '<rect x="' + x.toFixed(1) + '" y="' + y0.toFixed(1) + '" width="' + (bw - gap).toFixed(1) + '" height="' + Math.max(0, hh - (j > 0 ? 0 : 0)).toFixed(1) + '" fill="' + col + '" rx="' + (top ? 2 : 0) + '"/>';
+        if (j < segs.length - 1) s += '<rect x="' + x.toFixed(1) + '" y="' + (y0 - 1).toFixed(1) + '" width="' + (bw - gap).toFixed(1) + '" height="2" fill="#fff"/>';
+      });
+      s += '<rect class="hit" data-tip="' + esc(tip) + '" x="' + (padL + i * bw).toFixed(1) + '" y="' + padT + '" width="' + bw.toFixed(1) + '" height="' + (H - padT - padB) + '" fill="transparent"/>';
+      var aw = ws.length === 1 ? ws[0] : 'dale';
+      if (r.p[aw].age % 5 === 0) s += '<text x="' + (x + (bw - gap) / 2).toFixed(1) + '" y="' + (H - padB + 14) + '" text-anchor="middle">' + r.fy + '</text><text x="' + (x + (bw - gap) / 2).toFixed(1) + '" y="' + (H - padB + 27) + '" text-anchor="middle">' + esc(pname(aw)) + ' ' + r.p[aw].age + '</text>';
+      r.events.forEach(function (e) { if (/retires/.test(e.text)) { lab++; s += '<line x1="' + (x - gap / 2).toFixed(1) + '" x2="' + (x - gap / 2).toFixed(1) + '" y1="' + (2 + 15 * lab) + '" y2="' + (H - padB) + '" stroke="#15202B" stroke-dasharray="3 3"/><text x="' + (x + 2).toFixed(1) + '" y="' + (11 + 15 * (lab - 1)) + '" fill="#15202B" font-weight="600">' + esc(e.text) + '</text>'; } });
+    });
+    s += '<line x1="' + padL + '" x2="' + (W - 6) + '" y1="' + (H - padB) + '" y2="' + (H - padB) + '" stroke="#C9D0D7"/></g></svg>';
+    return s;
+  }
+
+  /* ---------- Budget ---------- */
+  function vBudget() {
+    var p = S.plan, bt = C.bt, ws = whoList();
+    var h = '<div class="head"><h1>Budget</h1><span class="sub">Type weekly, monthly or yearly – the others fill in</span><div class="ml row"><button class="btn primary" data-act="addExp" data-id="">+ Add expense</button></div></div>';
+    h += '<div class="card"><div class="row"><b>In retirement, base spending on</b>' + sel('settings.spendMode', [['target', 'A combined yearly amount'], ['budget', 'The "In retirement" column below']], 'w200', { label: 'Retirement spending basis' }) +
+      (p.settings.spendMode === 'target' ? '<span>of</span>' + inp('settings.spendTarget', 'money', 'w110', { label: 'Combined retirement spend' }) + '<span class="sub">per year (today\'s $), split ' + Math.round(C.base.splitPct) + '/' + Math.round(100 - C.base.splitPct) + '. Before each person retires, the "Now" amounts below are used.</span>' : '<span class="sub">Each person\'s share of the "In retirement" column is used once they retire.</span>') + '</div></div>';
+    h += '<div class="grid">';
+    ['dale', 'sue'].forEach(function (w) {
+      if (ws.indexOf(w) < 0) return;
+      h += '<div class="card" style="gap:4px"><div class="k-lab">' + esc(pname(w)) + ' – now (incl. share of shared)</div><div class="k-val ' + w + '">' + money(bt[w].now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt[w].ret) + ' · ' + money(bt[w].now / 52, 0) + '/wk</div></div>';
+    });
+    if (S.view === 'household') h += '<div class="card dark" style="gap:4px"><div class="k-lab">Household – now</div><div class="k-val">' + money(bt.dale.now + bt.sue.now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt.dale.ret + bt.sue.ret) + '</div></div>';
+    h += '</div>';
+    var cats = [];
+    p.expenses.forEach(function (e) { if (cats.indexOf(e.cat) < 0) cats.push(e.cat); });
+    var rows = '';
+    cats.forEach(function (c) {
+      var list = p.expenses.filter(function (e) { return e.cat === c && (S.view === 'household' || RPE.shareOf(e.owner, e.splitPct, S.view) > 0); });
+      if (!list.length) return;
+      var tot = list.reduce(function (a, e) { return a + (+e.yearly || 0); }, 0);
+      rows += '<tr class="grp"><th colspan="6">' + esc(c) + '</th><td class="num" style="border-top:1px solid var(--line);background:#fff;font-weight:600">' + money(tot) + '</td><td style="border-top:1px solid var(--line);background:#fff" class="num"><button class="btn link" data-act="addExp" data-id="' + esc(c) + '">+ Add</button></td></tr>';
+      list.forEach(function (e) {
+        var b = 'expenses:' + e.id + ':';
+        rows += '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Expense name' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td>' +
+          '<td class="nw">' + (e.owner === 'shared' ? '<span class="row" style="gap:4px;flex-wrap:nowrap">' + inp(b + 'splitPct', 'num', 'w70', { label: esc(pname('dale')) + ' share %' }) + '<span class="hint">% ' + esc(pname('dale')) + '</span></span>' : '') + '</td>' +
+          '<td class="num"><input class="in num w90" data-per="52" data-id="' + e.id + '" value="' + esc(((+e.yearly || 0) / 52).toFixed(2)) + '" aria-label="Weekly" inputmode="decimal"></td>' +
+          '<td class="num"><input class="in num w90" data-per="12" data-id="' + e.id + '" value="' + esc(((+e.yearly || 0) / 12).toFixed(2)) + '" aria-label="Monthly" inputmode="decimal"></td>' +
+          '<td class="num">' + inp(b + 'yearly', 'money', 'w110', { label: 'Yearly' }) + '</td>' +
+          '<td class="num">' + inp(b + 'retire', 'optmoney', 'w110', { label: 'In retirement per year', ph: 'same' }) + '</td>' +
+          '<td class="num nw">' + sel(b + 'cat', cats.map(function (x) { return [x, x]; }), 'w140', { label: 'Category' }) + ' ' + delBtn('delExp', e.id, 'Delete expense') + '</td></tr>';
+      });
+    });
+    h += '<div class="tw"><table><thead><tr><th>Expense</th><th>Owner</th><th>Split</th><th class="num">Weekly</th><th class="num">Monthly</th><th class="num">Yearly</th><th class="num">In retirement /yr</th><th class="num">Category · delete</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    h += '<div class="sub">"In retirement" blank = same as now; enter 0 for things that stop (e.g. work costs). Shared items show the full bill; the split is ' + esc(pname('dale')) + "'s %.</div>";
+    // one-offs
+    var oo = (p.oneOffs || []).map(function (o) {
+      var b = 'oneOffs:' + o.id + ':';
+      return '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Item' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td><td>' + (o.owner === 'shared' ? inp(b + 'splitPct', 'num', 'w70', { label: pname('dale') + ' share %' }) : '') + '</td><td>' + inp(b + 'year', 'num', 'w70', { label: 'Year' }) + '</td><td>' + inp(b + 'every', 'num', 'w70', { label: 'Repeat every N years (0 = once)' }) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Cost' }) + '</td><td class="num">' + delBtn('delOne', o.id, 'Delete one-off cost') + '</td></tr>';
+    }).join('');
+    h += '<section class="card"><div class="row"><h2>One-off future costs</h2><span class="sub">Big items that don\'t happen every year · cost in today\'s dollars</span><button class="btn primary ml" data-act="addOne">+ Add one-off cost</button></div>' +
+      (oo ? '<div class="tw" style="border:0"><table><thead><tr><th>Item</th><th>Owner</th><th>Split</th><th>Year</th><th>Repeat every (yrs)</th><th class="num">Cost</th><th></th></tr></thead><tbody>' + oo + '</tbody></table></div>' : '<div class="sub">None yet – e.g. replacing a car in 2032 every 8 years, a big trip, home repairs.</div>') + '</section>';
+    return h;
+  }
+
+  /* ---------- Income & Tax ---------- */
+  function vTax() {
+    var p = S.plan, rows = C.full.rows.slice(0, 8);
+    if (!S.taxFY || !rows.some(function (r) { return r.fy === S.taxFY; })) S.taxFY = rows[0].fy;
+    var row = rows.filter(function (r) { return r.fy === S.taxFY; })[0];
+    var h = '<div class="head"><h1>Income &amp; tax</h1><span class="sub">Resident rates + Medicare levy, low income offset, franking credits</span><div class="seg ml" style="background:#DDE3E9">' + rows.map(function (r) {
+      return '<button data-act="taxfy" data-id="' + r.fy + '" class="' + (r.fy === S.taxFY ? 'on' : '') + '" style="color:var(--ink)">' + r.label.replace('FY ', '') + '</button>'; }).join('') + '</div></div>';
+    h += '<div class="grid2">';
+    whoList().forEach(function (w) {
+      var R = row.p[w], T = R.tax, maxT = Math.max.apply(null, T.parts.map(function (x) { return x.tax; }).concat([T.medicare, 1]));
+      var col = w === 'dale' ? 'var(--dale)' : 'var(--sue)';
+      h += '<section class="card p-' + w + '"><div class="row"><h2>' + esc(pname(w)) + '</h2><span class="sub">' + row.label + ' · age ' + R.age + (R.workFrac > 0 ? (R.workFrac < 0.99 ? ' · working part of the year' : ' · working') : ' · retired') + '</span></div>';
+      h += '<div class="lab">Income streams</div>' + p.incomes.filter(function (i) { return i.owner === w; }).map(function (i) {
+          var b = 'incomes:' + i.id + ':';
+          return '<div class="inc">' + inp(b + 'name', 'text', '', { label: 'Income name' }) + inp(b + 'amount', 'money', '', { label: 'Amount per year' }) + delBtn('delInc', i.id, 'Delete income') +
+            '<div class="r2"><div class="field"><span class="hint">Type</span>' + sel(b + 'kind', [['work', 'Work (to retirement)'], ['taxable', 'Other taxable'], ['taxfree', 'Tax-free']], '', { label: 'Type' }) + '</div><div class="field"><span class="hint">From (blank = now)</span>' + inp(b + 'start', 'date', '', { label: 'Start' }) + '</div><div class="field"><span class="hint">To (blank = ongoing)</span>' + inp(b + 'end', 'date', '', { label: 'End' }) + '</div></div></div>';
+        }).join('') + '<button class="btn link" data-act="addInc" data-id="' + w + '" style="align-self:flex-start">+ Add income</button>';
+      h += '<div class="lab">' + row.label + ' – taxable income</div><table><tbody>' +
+        R.income.items.map(function (it) { return '<tr><td>' + esc(it.name) + (it.kind === 'taxfree' ? ' <span class="hint">(tax-free)</span>' : '') + '</td><td class="num">' + money(it.amount) + '</td></tr>'; }).join('') +
+        (R.income.franking > 1 ? '<tr><td>Franking credits (grossed up)</td><td class="num">' + money(R.income.franking) + '</td></tr>' : '') +
+        (R.concessional > 0 ? '<tr><td>Less deductible super contributions</td><td class="num">−' + money(R.concessional) + '</td></tr>' : '') +
+        (R.income.drawdown > 0 ? '<tr><td>Super pension drawdown <span class="hint">(tax-free, not counted)</span></td><td class="num">' + money(R.income.drawdown) + '</td></tr>' : '') +
+        (R.income.agePension > 0 ? '<tr><td>Age Pension <span class="hint">(usually offset to nil tax)</span></td><td class="num">' + money(R.income.agePension) + '</td></tr>' : '') +
+        '<tr class="tot"><td>Taxable income</td><td class="num">' + money(T.taxable) + '</td></tr></tbody></table>';
+      h += '<div class="lab">Tax by bracket</div>' + T.parts.map(function (x) {
+        return '<div style="display:grid;grid-template-columns:150px minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:13px"><span class="sub">' + pct(x.rate, 0) + ' · ' + kM(x.from) + (isFinite(x.to) ? '–' + kM(x.to) : '+') + '</span><div class="bar"><div style="width:' + (100 * x.tax / maxT).toFixed(1) + '%;background:' + col + '"></div></div><span class="num"><b>' + money(x.tax) + '</b></span></div>';
+      }).join('') +
+        '<div style="display:grid;grid-template-columns:150px minmax(0,1fr) 90px;gap:10px;align-items:center;font-size:13px"><span class="sub">Medicare levy</span><div class="bar"><div style="width:' + (100 * T.medicare / maxT).toFixed(1) + '%;background:' + col + '"></div></div><span class="num"><b>' + money(T.medicare) + '</b></span></div>' +
+        (T.lito > 0 ? '<div class="sub">Less low income tax offset ' + money(T.lito) + '</div>' : '') +
+        (R.income.franking > 1 ? '<div class="sub">Less franking credits ' + money(R.income.franking) + '</div>' : '');
+      h += '<div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">' +
+        '<div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div class="k-sub">Tax payable</div><div style="font-size:20px;font-weight:700">' + money(R.taxPaid) + '</div></div>' +
+        '<div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div class="k-sub">Effective rate</div><div style="font-size:20px;font-weight:700">' + pct(T.taxable > 0 ? R.taxPaid / T.taxable : 0) + '</div></div>' +
+        '<div style="background:var(--bg);border-radius:8px;padding:10px 12px"><div class="k-sub">Next $1 taxed at</div><div style="font-size:20px;font-weight:700">' + pct(T.marginal, 0) + '</div></div></div>';
+      var cc = +p.people[w].concessional || 0;
+      h += '<div class="row" style="border-top:1px solid var(--line);padding-top:12px"><div class="field" style="flex:1 1 220px"><label>Deductible super contributions per year (while working)</label><span class="hint">Taxed 15% in super instead of ' + pct(T.marginal, 0) + '. Check caps and carry-forward with your accountant.</span></div>' + inp('people.' + w + '.concessional', 'money', 'w110', { label: 'Deductible super contributions' }) + '</div>' +
+        (cc > 0 && R.workFrac > 0 ? '<div class="tip">Approximate tax saving this year: ' + money(cc * R.workFrac * Math.max(0, T.marginal - 0.15)) + '</div>' : '');
+      h += '</section>';
+    });
+    h += '</div>';
+    h += '<section class="card"><h2>Things to check with your accountant</h2><div class="grid">' +
+      '<div class="tip"><b>Whose name holds the cash.</b> Interest is taxed at the holder\'s marginal rate – the lower earner usually pays less.</div>' +
+      '<div class="tip"><b>Super contributions.</b> Deductible contributions are taxed at 15%. Unused caps can be carried forward when the balance is under $500k.</div>' +
+      '<div class="tip"><b>Pension phase.</b> Super pensions are tax-free from 60, so drawing from super can keep taxable income low.</div></div>' +
+      '<div class="sub">Simplified: no capital gains on selling shares, SAPTO or Division 293. General information, not tax advice.</div></section>';
+    return h;
+  }
+
+  /* ---------- Savings & Super ---------- */
+  var TYPES = [['cash', 'Cash / savings'], ['super', 'Super – accumulation'], ['pension', 'Super – pension'], ['shares', 'Shares'], ['crypto', 'Crypto'], ['db', 'Defined benefit']];
+  function vSavings() {
+    var p = S.plan, nw = C.nw;
+    var last = p.history.length ? p.history[p.history.length - 1] : null;
+    var h = '<div class="head"><h1>Savings &amp; super</h1><span class="sub">Total today ' + kM(nw.total) + (last ? ' · last recorded ' + dfmt(last.date) : '') + '</span><div class="ml row"><button class="btn" data-act="snap">Record today\'s balances</button></div></div>';
+    var owners = S.view === 'household' ? ['dale', 'sue', 'joint'] : [S.view, 'joint'];
+    owners.forEach(function (w) {
+      var list = p.accounts.filter(function (a) { return a.owner === w; });
+      var tot = list.reduce(function (a, x) { return a + (x.type === 'db' ? RPE.dbAmount(x) : (w === 'joint' && !x.include ? 0 : +x.balance || 0)); }, 0);
+      h += '<section class="card p-' + w + '"><div class="row"><h2>' + esc(pname(w)) + '</h2><span class="sub">' + money(tot) + (w === 'joint' ? ' counted in forecast (split 50/50)' : '') + '</span><button class="btn primary ml" data-act="addAcc" data-id="' + w + '">+ Add account</button></div>';
+      h += '<div class="tw" style="border:0"><table><thead><tr><th>Account</th><th>Type</th><th class="num">Balance</th><th class="num">Rate now</th><th class="num">Fees /yr</th><th>Notes</th>' + (w === 'joint' ? '<th>In forecast</th>' : '') + '<th></th></tr></thead><tbody>' +
+        list.map(function (a) {
+          var b = 'accounts:' + a.id + ':';
+          return '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Account name' }) + '</td><td>' + sel(b + 'type', TYPES, 'w140', { label: 'Type' }) + '</td>' +
+            '<td class="num">' + (a.type === 'db' ? '<b>' + money(RPE.dbAmount(a)) + '</b>' : inp(b + 'balance', 'money', 'w110', { label: 'Balance' })) + '</td>' +
+            '<td class="num">' + (a.type === 'cash' || a.type === 'crypto' ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'rate', 'pct', 'w70', { label: 'Rate %' }) + '%</span>' : '<span class="hint">' + (a.type === 'db' ? 'formula' : 'see Assumptions') + '</span>') + '</td>' +
+            '<td class="num">' + (a.type === 'super' || a.type === 'pension' ? inp(b + 'fees', 'money', 'w90', { label: 'Fees per year' }) : '') + '</td>' +
+            '<td>' + inp(b + 'note', 'text', '', { label: 'Notes' }) + '</td>' +
+            (w === 'joint' ? '<td><input type="checkbox" data-bind="' + b + 'include" data-type="bool" ' + (a.include ? 'checked' : '') + ' aria-label="Include in forecast" style="width:18px;height:18px"></td>' : '') +
+            '<td>' + delBtn('delAcc', a.id, 'Delete account') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+      list.filter(function (a) { return a.type === 'db'; }).forEach(function (a) {
+        var b = 'accounts:' + a.id + ':', calc = (+a.multiple || 0) * (+a.finalSalary || 0);
+        h += '<div class="card" style="background:var(--bg);border:0"><h3>' + esc(a.name) + ' – defined benefit</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
+          '<div class="field"><label>Benefit amount (if known)</label>' + inp(b + 'override', 'optmoney', '', { label: 'Benefit amount', ph: 'use formula' }) + '<span class="hint">From the fund statement – overrides the formula</span></div>' +
+          '<div class="field"><label>Benefit multiple</label>' + inp(b + 'multiple', 'optmoney', '', { label: 'Multiple' }) + '<span class="hint">On the statement</span></div>' +
+          '<div class="field"><label>Final salary (avg last 12 mths)</label>' + inp(b + 'finalSalary', 'money', '', { label: 'Final salary' }) + '</div>' +
+          '<div class="field"><label>Leaving date</label>' + inp(b + 'leaveDate', 'date', '', { label: 'Leaving date' }) + '</div>' +
+          '<div class="field"><label>On leaving, move to</label>' + sel(b + 'dest', [['pension', 'Account-based pension'], ['cash', 'Lump sum to cash'], ['split', '75% pension / 25% cash']], '', { label: 'Destination' }) + '</div></div>' +
+          '<div class="' + (a.override ? 'note' : 'tip') + '">Using <b>' + money(RPE.dbAmount(a)) + '</b>' + (a.override ? ' (entered amount – estimate until confirmed).' : ' from the formula.') + (calc ? ' Formula gives ' + money(calc) + '.' : '') + '</div></div>';
+      });
+      h += '</section>';
+    });
+    // history
+    var hist = p.history.slice().reverse();
+    h += '<section class="card"><h2>Balance history</h2>' + (hist.length ? '<table><thead><tr><th>Date</th><th class="num">' + esc(pname('dale')) + '</th><th class="num">' + esc(pname('sue')) + '</th><th class="num">Total</th><th class="num">Change</th><th></th></tr></thead><tbody>' + hist.map(function (x, i) {
+      var prev = hist[i + 1]; return '<tr><td>' + dfmt(x.date) + '</td><td class="num">' + money(x.dale) + '</td><td class="num">' + money(x.sue) + '</td><td class="num"><b>' + money(x.total) + '</b></td><td class="num">' + (prev ? money(x.total - prev.total) : '–') + '</td><td>' + delBtn('delSnap', x.date, 'Delete snapshot') + '</td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="sub">Update balances above every few months, then press "Record today\'s balances" to track real progress.</div>') + '</section>';
+    return h;
+  }
+
+  /* ---------- Forecast & Scenarios ---------- */
+  var SF = [ // field, label, type, base path, min, max, step
+    ['daleRetire', '{P1} retires', 'date', 'people.dale.retireDate'],
+    ['sueRetire', '{P2} retires', 'date', 'people.sue.retireDate'],
+    ['spendTarget', 'Combined retirement spend (today\'s $)', 'money', 'settings.spendTarget', 40000, 250000, 5000],
+    ['splitPct', '{P1}\'s share of spending %', 'num', 'settings.splitPct', 0, 100, 5],
+    ['superReturn', 'Super return', 'pct', 'assumptions.superReturn', 0.02, 0.10, 0.005],
+    ['cashRate', 'Cash rate', 'pct', 'assumptions.cashRate', 0.01, 0.07, 0.0025],
+    ['inflation', 'Inflation', 'pct', 'assumptions.inflation', 0.01, 0.06, 0.0025],
+    ['stress', 'Market fall in {P1}\'s retirement year', 'pct', null, 0, 0.4, 0.05]
+  ];
+  function scenById(id) { return S.plan.scenarios.filter(function (s) { return s.id === id; })[0]; }
+  function scenOverrides(sc) { var o = {}; if (sc.id === 'base') { if (sc.stress) o.stress = sc.stress; return o; } SF.forEach(function (f) { if (sc[f[0]] != null && sc[f[0]] !== '') o[f[0]] = sc[f[0]]; }); return o; }
+  function scenValue(sc, f) { if (sc.id !== 'base' && sc[f[0]] != null && sc[f[0]] !== '') return sc[f[0]]; if (f[0] === 'stress') return sc.stress || 0; return getPath(f[3]); }
+  function runScen(sc, pooled) { var o = scenOverrides(sc); o.pooled = pooled == null ? S.plan.settings.pooled : pooled; return RPE.project(S.plan, { today: C.today, scenario: o }); }
+  function vForecast() {
+    var p = S.plan;
+    if (!scenById(S.scen)) S.scen = 'base';
+    var sc = scenById(S.scen);
+    var V = S.view, isH = V === 'household';
+    var h = '<div class="head"><h1>Forecast &amp; scenarios</h1><span class="sub">' + (p.settings.pooled ? 'Pooled' : 'Separate') + ' funding</span>' +
+      '<div class="seg ml" role="group" aria-label="Forecast for" style="background:#DDE3E9">' + [['household', 'Combined'], ['dale', pname('dale')], ['sue', pname('sue')]].map(function (v) {
+        return '<button data-act="view" data-id="' + v[0] + '" class="' + (V === v[0] ? 'on' : '') + '" style="color:var(--ink)">' + esc(v[1]) + '</button>'; }).join('') + '</div>' +
+      '<button class="btn" data-act="csv">Export to Excel (CSV)</button></div>';
+    function lastsFor(s) {
+      if (isH) { var l = runScen(s).lasts.household; return l ? pname('dale') + ' ' + l.ageDale + ' / ' + pname('sue') + ' ' + l.ageSue : 'beyond 100'; }
+      var own = runScen(s, false).lasts[V]; return (own ? 'age ' + own.age : 'beyond 100') + ' on own';
+    }
+    // scenario list
+    h += '<section class="card"><div class="row"><h2>Scenarios</h2><span class="sub">Tick two to compare · click a name to edit it</span><button class="btn primary ml" data-act="newScen">+ New scenario</button></div>' +
+      p.scenarios.map(function (s) {
+        var on = p.compare.indexOf(s.id) >= 0;
+        return '<div class="row" style="border-top:1px solid var(--line2);padding-top:8px"><input type="checkbox" data-act="cmp" data-id="' + s.id + '" ' + (on ? 'checked' : '') + ' aria-label="Compare ' + esc(s.name) + '" style="width:18px;height:18px;accent-color:var(--dale)">' +
+          '<button class="btn link" data-act="pickScen" data-id="' + s.id + '" style="' + (s.id === S.scen ? 'text-decoration:underline' : '') + '">' + esc(s.name) + '</button><span class="sub">' + esc(s.note || '') + '</span>' +
+          '<span class="ml"><b>' + (isH ? 'Lasts to ' : esc(pname(V)) + ': lasts to ') + esc(lastsFor(s)) + '</b></span>' +
+          '<button class="ibtn" data-act="copyScen" data-id="' + s.id + '" aria-label="Copy scenario" title="Copy">' + ICON.copy + '</button>' +
+          (s.id !== 'base' ? delBtn('delScen', s.id, 'Delete scenario') : '<span style="width:34px"></span>') + '</div>';
+      }).join('') + '</section>';
+    h += '<div class="row" style="align-items:flex-start;gap:16px">';
+    // editor
+    h += '<section class="card" style="flex:1 1 300px;max-width:380px"><div class="field"><label>Scenario name</label>' + (sc.id === 'base' ? '<b>Base plan</b><span class="hint">Changes here update the plan itself</span>' : '<input class="in" data-scen="name" value="' + esc(sc.name) + '" aria-label="Scenario name">') + '</div>' +
+      (sc.id !== 'base' ? '<div class="field"><label>Note</label><input class="in" data-scen="note" value="' + esc(sc.note || '') + '" aria-label="Scenario note"></div>' : '') +
+      SF.map(function (f) {
+        var v = scenValue(sc, f), id = 'sf_' + f[0];
+        var lab = f[1].replace('{P1}', pname('dale')).replace('{P2}', pname('sue'));
+        if (f[2] === 'date') return '<div class="field"><label for="' + id + '">' + esc(lab) + '</label><input id="' + id + '" class="in" type="date" data-sf="' + f[0] + '" value="' + esc(v || '') + '"></div>';
+        var disp = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%';
+        return '<div class="slider"><label class="top2" for="' + id + '"><span>' + esc(lab) + '</span><span class="dale">' + disp + '</span></label><input id="' + id + '" type="range" min="' + f[4] + '" max="' + f[5] + '" step="' + f[6] + '" value="' + v + '" data-sf="' + f[0] + '"></div>';
+      }).join('') +
+      (sc.id !== 'base' ? '<button class="btn" data-act="resetScen" data-id="' + sc.id + '">Reset to base plan values</button>' : '') + '</section>';
+    // comparison
+    var cmp = p.compare.map(scenById).filter(Boolean).slice(0, 2);
+    var res = cmp.map(function (s) { return runScen(s); });
+    var resSep = cmp.map(function (s) { return runScen(s, false); });
+    var who = isH ? 'dale' : V, ages = isH ? [60, 70, 80, 90] : (V === 'sue' ? [65, 70, 80, 90] : [60, 70, 80, 90]);
+    function rowAt(r, age) { return r.rows.filter(function (q) { return q.p[who].age === age; })[0]; }
+    function val(x) { return isH ? x.total : x.p[V].total; }
+    function sum(r, f) { return r.rows.reduce(function (a, q) { return a + (isH ? f(q.p.dale) + f(q.p.sue) : f(q.p[V])); }, 0); }
+    h += '<div style="flex:999 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px">';
+    if (cmp.length) {
+      var lab = isH ? 'Household balance' : esc(pname(V)) + "'s balance";
+      h += '<div class="tw"><table><thead><tr><th>Compare – ' + (isH ? 'combined' : esc(pname(V))) + '</th>' + cmp.map(function (s, i) { return '<th class="num' + (i ? ' dale' : '') + '">' + esc(s.name) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        ages.map(function (ag) {
+          return '<tr><th scope="row" style="font-weight:500">' + lab + ' at ' + esc(pname(who)) + ' ' + ag + '</th>' + res.map(function (r) { var x = rowAt(r, ag); return '<td class="num"><b>' + (x ? kM(val(x)) : '–') + '</b>' + (x && isH ? ' <span class="hint">(' + esc(pname('sue')).charAt(0) + ' ' + x.p.sue.age + ')</span>' : '') + '</td>'; }).join('') + '</tr>';
+        }).join('') +
+        (isH
+          ? '<tr class="tot"><th scope="row">Money lasts until</th>' + res.map(function (r) { var l = r.lasts.household; return '<td class="num">' + (l ? esc(pname('dale')) + ' ' + l.ageDale + ' / ' + esc(pname('sue')) + ' ' + l.ageSue : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
+            '<tr><th scope="row" style="font-weight:500">Each on own (separate)</th>' + resSep.map(function (r) { return '<td class="num">' + esc(pname('dale')) + ' ' + (r.lasts.dale ? r.lasts.dale.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (r.lasts.sue ? r.lasts.sue.age : '100+') + '</td>'; }).join('') + '</tr>'
+          : '<tr class="tot"><th scope="row">' + esc(pname(V)) + "'s money lasts (on own)</th>" + resSep.map(function (r) { var l = r.lasts[V]; return '<td class="num">' + (l ? 'Age ' + l.age : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
+            '<tr><th scope="row" style="font-weight:500">Household lasts (pooled)</th>' + cmp.map(function (s) { var l = runScen(s, true).lasts.household; return '<td class="num">' + (l ? esc(pname(V)) + ' ' + (V === 'dale' ? l.ageDale : l.ageSue) : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
+            '<tr><th scope="row" style="font-weight:500">Spending share (first retired year)</th>' + res.map(function (r) { var q = r.rows.filter(function (x) { return x.p[V].workFrac === 0 && x.frac > 0.99; })[0]; return '<td class="num">' + (q ? kM(q.p[V].spend) + '/yr' : '–') + '</td>'; }).join('') + '</tr>' +
+            '<tr><th scope="row" style="font-weight:500">Total from super</th>' + res.map(function (r) { return '<td class="num">' + kM(sum(r, function (x) { return x.fromSuper; })) + '</td>'; }).join('') + '</tr>' +
+            '<tr><th scope="row" style="font-weight:500">Total Age Pension</th>' + res.map(function (r) { return '<td class="num">' + kM(sum(r, function (x) { return x.income.agePension; })) + '</td>'; }).join('') + '</tr>') +
+        '<tr><th scope="row" style="font-weight:500">Work income from now</th>' + res.map(function (r) { return '<td class="num">' + kM(sum(r, function (x) { return x.income.work; })) + '</td>'; }).join('') + '</tr>' +
+        '<tr><th scope="row" style="font-weight:500">Total tax paid</th>' + res.map(function (r) { return '<td class="num">' + kM(sum(r, function (x) { return x.taxPaid; })) + '</td>'; }).join('') + '</tr>' +
+        '</tbody></table></div>';
+    }
+    var r0 = runScen(sc);
+    h += '<section class="card"><div class="row"><h2>' + (isH ? 'Combined balances' : esc(pname(V)) + "'s balance") + ' – ' + esc(sc.name) + '</h2><span class="sub ml">Future dollars · hover a bar for details</span></div><div class="chart" id="chart">' + chartSVG(r0) + '</div></section>';
+    var shown = r0.rows.filter(function (r) { return r.p.dale.age <= p.assumptions.planToAge + 2; });
+    function evs(r, w) { return esc(r.events.filter(function (e) { return !w || e.who === w || e.who === 'both'; }).map(function (e) { return e.text; }).join('; ')); }
+    if (isH) {
+      h += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – combined – ' + esc(sc.name) + '</b> <span class="sub">future dollars</span></div><table><thead><tr><th>FY</th><th class="num">Ages</th><th class="num">Spend</th><th class="num dale">' + esc(pname('dale')) + ' spend</th><th class="num sue">' + esc(pname('sue')) + ' spend</th><th class="num">Tax</th><th class="num">Age Pension</th><th class="num dale">' + esc(pname('dale')) + ' balance</th><th class="num sue">' + esc(pname('sue')) + ' balance</th><th class="num">Household</th><th>Events</th></tr></thead><tbody>' +
+        shown.map(function (r) {
+          var D = r.p.dale, U = r.p.sue;
+          return '<tr' + (r.deficit > 1 ? ' style="background:#FDECEA"' : '') + '><td class="nw"><b>' + r.label + '</b></td><td class="num nw">' + D.age + ' / ' + U.age + '</td><td class="num">' + kM(D.spend + U.spend + D.oneOff + U.oneOff) + '</td><td class="num">' + kM(D.spend + D.oneOff) + '</td><td class="num">' + kM(U.spend + U.oneOff) + '</td><td class="num">' + kM(D.taxPaid + U.taxPaid) + '</td><td class="num">' + (r.agePension ? kM(r.agePension) : '–') + '</td><td class="num">' + kM(D.total) + '</td><td class="num">' + kM(U.total) + '</td><td class="num"><b>' + kM(r.total) + '</b></td><td class="sub ev">' + evs(r) + (r.transfers.length ? esc(' · top-up ' + r.transfers.map(function (t) { return pname(t.from) + '→' + pname(t.to) + ' ' + kM(t.amount); }).join(', ')) : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    } else {
+      h += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – ' + esc(pname(V)) + ' – ' + esc(sc.name) + '</b> <span class="sub">future dollars</span></div><table><thead><tr><th>FY</th><th class="num">Age</th><th class="num">Work income</th><th class="num">Interest &amp; dividends</th><th class="num">From super</th><th class="num">Age Pension</th><th class="num">Tax</th><th class="num">Spending</th><th class="num">Cash</th><th class="num">Super</th><th class="num">Other</th><th class="num">Total</th><th class="num">Top-ups</th><th>Events</th></tr></thead><tbody>' +
+        shown.map(function (r) {
+          var R = r.p[V], B = R.bal, I = R.income;
+          var tu = r.transfers.reduce(function (a, t) { return a + (t.to === V ? t.amount : t.from === V ? -t.amount : 0); }, 0);
+          return '<tr' + (R.deficit > 1 ? ' style="background:#FDECEA"' : '') + '><td class="nw"><b>' + r.label + '</b></td><td class="num">' + R.age + '</td><td class="num">' + (I.work ? kM(I.work) : '–') + '</td><td class="num">' + kM(I.interest + I.dividends) + '</td><td class="num">' + (R.fromSuper ? kM(R.fromSuper) : '–') + '</td><td class="num">' + (I.agePension ? kM(I.agePension) : '–') + '</td><td class="num">' + kM(R.taxPaid) + '</td><td class="num">' + kM(R.spend + R.oneOff) + '</td><td class="num">' + kM(B.cash) + '</td><td class="num">' + kM(B.accum + B.pension) + '</td><td class="num">' + kM(B.shares + B.crypto) + '</td><td class="num"><b>' + kM(R.total) + '</b></td><td class="num">' + (tu ? (tu > 0 ? '+' : '') + kM(tu) : '–') + '</td><td class="sub ev">' + evs(r, V) + '</td></tr>';
+        }).join('') + '</tbody></table></div><div class="sub">Top-ups (pooled only): + received from ' + esc(pname(V === 'dale' ? 'sue' : 'dale')) + ', − given. Red rows: ' + esc(pname(V)) + "'s money has run out.</div>";
+    }
+    h += '</div></div>';
+    return h;
+  }
+
+  /* ---------- Assumptions ---------- */
+  function vAssumptions() {
+    var A = S.plan.assumptions, ro = !isAdmin();
+    var o = { ro: ro };
+    function line(lab, hint, path, type, grp) { return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:12px;align-items:center;border-top:1px solid var(--line2);padding-top:9px"><div><div class="lab">' + lab + '</div><div class="hint">' + hint + '</div></div>' + inp(path, type, '', { ro: ro, label: lab }).replace('data-bind=', 'data-grp="' + grp + '" data-bind=') + '</div>'; }
+    function grp(title, key, body) { return '<section class="card"><div class="row"><h2>' + title + '</h2><span class="sub">Updated ' + dfmt(A.updated[key]) + '</span></div>' + body + '</section>'; }
+    var h = '<div class="head"><h1>Assumptions</h1><span class="sub">The rules and rates behind every calculation' + (ro ? ' · read-only (' + esc(pname('dale')) + ' is admin)' : '') + '</span>' + (ro ? '' : '<button class="btn ml" data-act="resetA">Reset to defaults</button>') + '</div>';
+    h += '<div class="note">Review due ' + dfmt(A.reviewDue) + ' – new tax year. Age Pension limits change each March and September. ' + (ro ? '' : 'Next review date: ') + (ro ? '' : inp('assumptions.reviewDue', 'date', 'w140', { label: 'Next review date' })) + '</div>';
+    h += '<div class="grid2">';
+    h += grp('Economic', 'economic',
+      line('Inflation', 'Grows spending and limits each year', 'assumptions.inflation', 'pct', 'economic') +
+      line('Cash interest rate', 'Long-run rate on savings (current rates are on Savings & Super)', 'assumptions.cashRate', 'pct', 'economic') +
+      line('Super return', 'Before 15% earnings tax in accumulation; tax-free in pension phase', 'assumptions.superReturn', 'pct', 'economic') +
+      line('Share dividend yield', 'Plus franking credits', 'assumptions.divYield', 'pct', 'economic') +
+      line('Share price growth', 'Per year', 'assumptions.shareGrowth', 'pct', 'economic') +
+      line('Plan to age', 'Money should last until the younger partner reaches', 'assumptions.planToAge', 'num', 'economic'));
+    h += grp('Super rules', 'super',
+      line('Preservation age', 'Super can be accessed once retired', 'assumptions.preservationAge', 'num', 'super') +
+      line('Earnings tax – accumulation', '0% in pension phase', 'assumptions.superEarningsTax', 'pct', 'super') +
+      line('Contributions tax', 'On deductible contributions', 'assumptions.superContribTax', 'pct', 'super') +
+      '<div class="lab" style="margin-top:6px">Minimum pension drawdown</div><table><thead><tr><th>From age</th><th class="num">Rate</th></tr></thead><tbody>' +
+      A.minDrawdown.map(function (r, i) { return '<tr><td>' + r[0] + '</td><td class="num">' + inp('assumptions.minDrawdown.' + i + '.1', 'pct', 'w70', { ro: ro, label: 'Rate from age ' + r[0] }).replace('data-bind=', 'data-grp="super" data-bind=') + '</td></tr>'; }).join('') + '</tbody></table>');
+    h += grp('Income tax', 'tax', A.taxYears.map(function (ty, ti) {
+      return '<div class="lab">' + esc(ty.label) + '</div><table><thead><tr><th class="num">Income over</th><th class="num">Rate</th></tr></thead><tbody>' + ty.brackets.map(function (b, bi) {
+        return '<tr><td class="num">' + inp('assumptions.taxYears.' + ti + '.brackets.' + bi + '.0', 'money', 'w110', { ro: ro, label: 'Threshold' }).replace('data-bind=', 'data-grp="tax" data-bind=') + '</td><td class="num">' + inp('assumptions.taxYears.' + ti + '.brackets.' + bi + '.1', 'pct', 'w70', { ro: ro, label: 'Rate' }).replace('data-bind=', 'data-grp="tax" data-bind=') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }).join('') + line('Medicare levy', 'On taxable income', 'assumptions.medicareRate', 'pct', 'tax') + line('Medicare low-income threshold', 'No levy below this', 'assumptions.medicareThreshold', 'money', 'tax'));
+    h += grp('Age Pension (couple, homeowners)', 'agePension',
+      line('Pension age', 'Both partners', 'assumptions.agePension.age', 'num', 'agePension') +
+      line('Maximum couple rate per year', 'Combined, incl. supplements', 'assumptions.agePension.coupleMaxYear', 'money', 'agePension') +
+      line('Assets – full pension limit', 'Combined; home not counted', 'assumptions.agePension.coupleFullLimit', 'money', 'agePension') +
+      line('Assets taper', '$ per fortnight lost per $1,000 over the limit', 'assumptions.agePension.taperPer1000Fn', 'num', 'agePension') +
+      line('Income free area per year', 'Combined', 'assumptions.agePension.coupleIncomeFreeYear', 'money', 'agePension') +
+      line('Deeming threshold', 'Combined financial assets', 'assumptions.agePension.deemThreshold', 'money', 'agePension') +
+      line('Deeming rate – below', '', 'assumptions.agePension.deemLow', 'pct', 'agePension') +
+      line('Deeming rate – above', '', 'assumptions.agePension.deemHigh', 'pct', 'agePension') +
+      '<div class="hint">Cut-off works out at about ' + money(A.agePension.coupleFullLimit + A.agePension.coupleMaxYear / 26 / A.agePension.taperPer1000Fn * 1000) + ' (Services Australia figures from 20 Sep 2026).</div>');
+    h += '</div>';
+    return h;
+  }
+
+  /* ---------- Users & passwords ---------- */
+  function vUsers() {
+    var f = S.file, m = f.meta || {};
+    var h = '<div class="head"><h1>Users &amp; passwords</h1><span class="sub">' + (isAdmin() ? 'Admin' : esc(pname(S.user))) + '</span></div>';
+    h += '<div class="grid2"><section class="card"><h2>Change my password</h2>' + pwFields('me') + '<button class="btn primary" data-act="pwMe" style="align-self:flex-start">Change password</button><div class="hint">Takes effect when you Save.</div></section>';
+    if (isAdmin()) {
+      h += '<section class="card"><h2>' + esc(pname('sue')) + "'s access</h2><div class=\"sub\">" + (f.slots.sue ? 'Password is set.' : 'No password yet – ' + esc(pname('sue')) + ' cannot open the plan.') + '</div>' + pwFields('sue') +
+        '<div class="row"><button class="btn primary" data-act="pwSue">' + (f.slots.sue ? 'Reset password' : 'Set password') + '</button>' + (f.slots.sue ? '<button class="btn danger" data-act="rmSue">Remove access</button>' : '') + '</div></section>';
+      h += '<section class="card"><h2>Recovery key</h2><div class="sub">The only way back in if ' + esc(pname('dale')) + "'s password is forgotten. Keep it printed somewhere safe – not in the OneDrive folder.</div>" +
+        (S.newRecovery ? '<div class="rkey">' + esc(S.newRecovery) + '</div><div class="note">Write this down now. It won\'t be shown again and replaces the old key when you Save.</div>' : '') +
+        '<button class="btn" data-act="newRk" style="align-self:flex-start">Create a new recovery key</button></section>';
+      h += '<section class="card"><h2>Names</h2><div class="grid" style="grid-template-columns:1fr 1fr">' +
+        '<div class="field"><label>Partner 1 (admin)</label>' + inp('people.dale.name', 'text', '', { label: 'Name' }) + '</div>' +
+        '<div class="field"><label>Partner 2</label>' + inp('people.sue.name', 'text', '', { label: 'Name' }) + '</div>' +
+        '<div class="field"><label>' + esc(pname('dale')) + ' – date of birth</label>' + inp('people.dale.dob', 'date', '', { label: 'Date of birth' }) + '</div>' +
+        '<div class="field"><label>' + esc(pname('sue')) + ' – date of birth</label>' + inp('people.sue.dob', 'date', '', { label: 'Date of birth' }) + '</div></div></section>';
+    }
+    h += '<section class="card"><h2>This plan file</h2><table><tbody><tr><td>File</td><td>' + esc(Files.name()) + '</td></tr><tr><td>Last saved</td><td>' + (m.savedAt ? new Date(m.savedAt).toLocaleString('en-AU') + ' by ' + esc(m.savedBy === 'recovery' ? 'recovery key' : pname(m.savedBy)) : '–') + '</td></tr><tr><td>Planner version</td><td>v' + RP_VERSION + ' (' + dfmt(RP_RELEASED) + ')</td></tr><tr><td>Plan last saved with</td><td>' + (m.appVersion ? 'v' + esc(m.appVersion) : 'v1.3.1 or earlier') + '</td></tr><tr><td>Times saved</td><td>' + (m.rev || 1) + '</td></tr><tr><td>Encryption</td><td>AES-256-GCM, keys from your password (PBKDF2, ' + Vault.ITER.toLocaleString() + ' rounds)</td></tr><tr><td>Auto-lock</td><td><select class="in w140" data-act="lockMins" aria-label="Auto-lock">' + [5, 15, 30, 60].map(function (n) { return '<option value="' + n + '"' + (S.lockMins === n ? ' selected' : '') + '>' + n + ' minutes idle</option>'; }).join('') + '</select></td></tr></tbody></table>' +
+      '<div class="row"><button class="btn" data-act="saveAs">Save a copy as…</button></div><div class="hint">Hiding each person\'s figures from the other can be switched on in a later version.</div></section></div>';
+    return h;
+  }
+  function pwFields(k) { return '<div class="field"><label for="pw1_' + k + '">New password</label><input class="in" type="password" id="pw1_' + k + '" autocomplete="new-password"></div><div class="field"><label for="pw2_' + k + '">Repeat</label><input class="in" type="password" id="pw2_' + k + '" autocomplete="new-password"></div>'; }
+  function readPw(k) {
+    var a = document.getElementById('pw1_' + k).value, b = document.getElementById('pw2_' + k).value;
+    if (a.length < 8) { alert('Use at least 8 characters.'); return null; }
+    if (a !== b) { alert("The two passwords don't match."); return null; }
+    return a;
+  }
+
+  /* ---------- Help ---------- */
+  function helpText(t) { return String(t).replace(/\{P1\}/g, esc(pname('dale'))).replace(/\{P2\}/g, esc(pname('sue'))).replace(/\{URL\}/g, RP_WEB_URL ? '<a href="' + RP_WEB_URL + '">' + RP_WEB_URL + '</a>' : 'the planner\'s web address'); }
+  function helpBody(open) {
+    var q = (S.helpQ || '').toLowerCase();
+    var secs = RP_HELP.filter(function (s) { return !q || (s[1] + ' ' + helpText(s[2])).toLowerCase().indexOf(q) >= 0; });
+    return '<div class="row"><label for="helpQ" class="lab">Search help</label><input class="in" id="helpQ" style="max-width:340px" placeholder="e.g. password, defined benefit, save" value="' + esc(S.helpQ || '') + '"><button class="btn" data-act="helpAll" data-id="1">Expand all</button><button class="btn" data-act="helpAll" data-id="0">Collapse all</button><button class="btn" data-act="print">Print</button></div>' +
+      '<nav class="helpnav" aria-label="Help topics">' + secs.map(function (s) { return '<a href="#h_' + s[0] + '" data-act="helpGo" data-id="' + s[0] + '">' + esc(s[1]) + '</a>'; }).join('') + '</nav>' +
+      (secs.length ? secs.map(function (s) { return '<details class="card help" id="h_' + s[0] + '"' + (open || q || S.helpOpen === s[0] ? ' open' : '') + '><summary><h2>' + esc(s[1]) + '</h2></summary><div class="hbody">' + helpText(s[2]) + '</div></details>'; }).join('') : '<div class="sub">No topics match "' + esc(S.helpQ) + '".</div>');
+  }
+  function vHelp() {
+    return '<div class="head"><h1>Help guide</h1><span class="sub">How to use the Retirement Planner – for ' + esc(pname('dale')) + ' and ' + esc(pname('sue')) + '</span></div>' + helpBody(S.helpExpand);
+  }
+
+  /* ---------- Lock / create screens ---------- */
+  function renderLock() {
+    if (S.lockHelp) {
+      app.innerHTML = '<div class="lock" style="align-items:flex-start"><div style="width:100%;max-width:980px;display:flex;flex-direction:column;gap:14px"><div class="row" style="color:#fff"><h1 style="color:#fff">Help guide</h1><button class="btn ml" data-act="lockHelp" data-id="0" style="color:var(--ink)">Back to login</button></div>' + helpBody(true) + '</div></div>';
+      return;
+    }
+    var h = '<div class="lock"><div class="lockbox"><div class="t"><div>Retirement Planner</div><div>Runs entirely on this device · nothing is sent online</div></div><div class="panel">';
+    var fm = S.file && S.file.meta;
+    if (S.stage === 'login' && fm && fm.appVersion && rpCompareVersions(fm.appVersion, RP_VERSION) > 0)
+      h += '<div class="note" role="alert"><b>Newer plan file.</b> It was saved with planner v' + esc(fm.appVersion) + ' but this copy is v' + esc(RP_VERSION) + '. Open the latest Retirement-Planner-v' + esc(fm.appVersion) + ' (or newer) file from OneDrive before making changes.</div>';
+    var env = rpEnvironment();
+    if (env.viewer) h += '<div class="note" role="alert"><b>You\'re in a built-in viewer, not a web browser.</b> Choosing the plan file may not work here. Open this planner file in <b>Chrome</b> instead – look for <b>⋮ › Open in Chrome</b> or <b>Open with › Chrome</b>.</div>';
+    if (S.stage === 'file') {
+      h += '<h2>Open your plan</h2>' + (S.lastName ? '<button class="btn primary" data-act="reopen">Open ' + esc(S.lastName) + '</button>' : '') +
+        '<button class="btn' + (S.lastName ? '' : ' primary') + '" data-act="openFile">Choose plan file…</button>' +
+        '<div class="hint">Your plan file ends in .rplan and lives in your shared OneDrive folder.</div>' +
+        '<div style="border-top:1px solid var(--line);padding-top:14px" class="field"><b>First time?</b><button class="btn" data-act="startCreate">Create a new plan</button><span class="hint">You enter your own names, dates and figures. Nothing is filled in for you.</span></div>';
+    } else if (S.stage === 'login') {
+      h += '<div class="field"><span class="lab">Plan file</span><div class="row"><b>' + esc(Files.name()) + '</b><button class="btn link" data-act="backFile">Change…</button></div></div>';
+      if (!S.recovery) {
+        h += '<fieldset style="border:0;margin:0;padding:0" class="field"><legend class="lab" style="margin-bottom:8px">Who\'s using it?</legend><div class="who">' + ['dale', 'sue'].map(function (w) {
+          return '<label class="' + (S.loginWho === w ? 'on' : '') + '"><input type="radio" name="who" value="' + w + '" ' + (S.loginWho === w ? 'checked' : '') + ' data-act="who" data-id="' + w + '" style="width:18px;height:18px;accent-color:var(--dale)">' + (w === 'dale' ? esc(pname('dale')) + ' <span class="chip dale">Admin</span>' : esc(pname('sue'))) + '</label>'; }).join('') + '</div></fieldset>' +
+          '<div class="field"><label for="pw">Password</label><input class="in" type="password" id="pw" autocomplete="current-password" autofocus></div>';
+      } else {
+        h += '<div class="field"><label for="pw">Recovery key</label><input class="in" type="text" id="pw" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>';
+      }
+      h += (S.err ? '<div class="err" role="alert">' + esc(S.err) + '</div>' : '') +
+        '<button class="btn primary" data-act="unlock" id="unlockBtn">' + (S.busy ? 'Unlocking…' : 'Unlock plan') + '</button>' +
+        '<div class="row" style="justify-content:space-between"><button class="btn link" data-act="toggleRec">' + (S.recovery ? 'Use a password instead' : 'Forgot password? Use recovery key') + '</button></div>';
+    } else if (S.stage === 'create') {
+      var cf = function (id, lab, type, hint) { return '<div class="field"><label for="' + id + '">' + lab + '</label><input class="in" id="' + id + '" type="' + type + '">' + (hint ? '<span class="hint">' + hint + '</span>' : '') + '</div>'; };
+      h += '<h2>Create a new plan</h2><div class="sub">Partner 1 is the admin. You can change all of this later.</div>' +
+        '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' + cf('cr_n1', 'Partner 1 (admin) – first name', 'text') + cf('cr_d1', 'Date of birth', 'date') + cf('cr_r1', 'Planned retirement date', 'date', 'Blank = at 65') +
+        cf('cr_n2', 'Partner 2 – first name', 'text') + cf('cr_d2', 'Date of birth', 'date') + cf('cr_r2', 'Planned retirement date', 'date', 'Blank = at 65') + '</div>' +
+        '<div class="field"><b>Partner 1 password</b></div>' + pwFields('dale') +
+        '<div class="field"><b>Partner 2 password</b><span class="hint">Optional now – you can set it later under Users &amp; passwords.</span></div>' + pwFields('sueNew') +
+        (S.err ? '<div class="err" role="alert">' + esc(S.err) + '</div>' : '') +
+        '<button class="btn primary" data-act="create">' + (S.busy ? 'Creating…' : 'Create plan') + '</button><button class="btn link" data-act="backFile">Back</button>';
+    } else if (S.stage === 'recovery') {
+      h += '<h2>Your recovery key</h2><div class="rkey">' + esc(S.newRecovery) + '</div><div class="note">Write this down or print this page and keep it somewhere safe – not in the OneDrive folder. It\'s the only way in if ' + esc(pname('dale')) + '\'s password is lost.</div>' +
+        '<label class="row" style="font-size:14px"><input type="checkbox" id="rkOk" style="width:18px;height:18px"> I\'ve written it down</label>' +
+        '<button class="btn primary" data-act="afterCreate">Save the plan file to OneDrive…</button>';
+    }
+    h += '</div><div class="sec">Your figures are encrypted (AES-256) inside the plan file. Nothing is sent online – OneDrive only ever stores the locked file. ' + esc(pname('dale')) + ' (admin) can reset ' + esc(pname('sue')) + '\'s password; ' + esc(pname('dale')) + '\'s own access can be recovered only with the printed recovery key.</div><button class="btn" data-act="lockHelp" data-id="1" style="align-self:center">Help guide – how to get started</button><div style="text-align:center;font-size:12px;color:#B8C2CC">Retirement Planner v' + RP_VERSION + ' · ' + dfmt(RP_RELEASED) + '<br>Running in ' + esc(rpEnvironment().app) + ' on ' + esc(rpEnvironment().os) + '</div></div></div>';
+    app.innerHTML = h;
+    var pw = document.getElementById('pw'); if (pw) pw.focus();
+  }
+
+  /* ---------- actions ---------- */
+  async function unlockNow() {
+    var pw = (document.getElementById('pw') || {}).value || '';
+    if (!pw) { S.err = 'Enter your ' + (S.recovery ? 'recovery key' : 'password') + '.'; return renderLock(); }
+    var who = S.recovery ? 'recovery' : S.loginWho;
+    S.busy = true; S.err = ''; renderLock();
+    try {
+      var r = await Vault.unlock(S.file, who, pw);
+      S.plan = r.plan; S.dataKey = r.dataKey; S.user = who; S.busy = false; S.view = 'household'; S.tab = who === 'recovery' ? 'users' : 'dashboard';
+      S.dirty = false; S.lastSaved = null;
+      if (who === 'recovery') setTimeout(function () { toast('Set a new password for ' + pname('dale') + ' below, then Save.'); }, 300);
+      var fv = S.file.meta && S.file.meta.appVersion;
+      if (fv && rpCompareVersions(fv, RP_VERSION) > 0) setTimeout(function () { alert('This plan was saved with a newer planner (v' + fv + '). You are using v' + RP_VERSION + '.\n\nPlease open Retirement-Planner-v' + fv + ' (or newer) from OneDrive – saving with this older copy could lose newer settings.'); }, 300);
+      render();
+    } catch (e) { S.busy = false; S.err = e.message; renderLock(); }
+  }
+  async function saveNow(saveAs) {
+    try {
+      if (!saveAs && Files.hasHandle() && await Files.changedOnDisk()) {
+        var keep = confirm('Someone saved this plan since you opened it (perhaps ' + (S.user === 'dale' ? pname('sue') : pname('dale')) + ').\n\nOK = overwrite with your version\nCancel = load their version instead (your unsaved changes will be lost)');
+        if (!keep) {
+          var other = await Files.readCurrent();
+          S.file = other;
+          S.plan = await (async function () { var dec = new TextDecoder(); var iv = Uint8Array.from(atob(other.data.iv), function (c) { return c.charCodeAt(0); }); var ct = Uint8Array.from(atob(other.data.ct), function (c) { return c.charCodeAt(0); }); return JSON.parse(dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, S.dataKey, ct))); })();
+          S.dirty = false; render(); toast('Loaded the latest saved version.'); return;
+        }
+      }
+      if (S.pendingSlots) { for (var k in S.pendingSlots) { if (S.pendingSlots[k] === null) await Vault.removeSlot(S.file, k); else await Vault.setSlot(S.file, S.dataKey, k, S.pendingSlots[k]); } S.pendingSlots = null; }
+      await Vault.seal(S.file, S.dataKey, S.plan, S.user);
+      var res = await Files.save(S.file, saveAs);
+      S.dirty = false; S.newRecovery = null;
+      S.lastSaved = new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' });
+      render();
+      toast(res.mode === 'download' ? 'Downloaded ' + res.name + ' – move it into your OneDrive folder, replacing the old copy.' : 'Saved to ' + res.name);
+    } catch (e) { if (e && e.name === 'AbortError') return; alert('Could not save: ' + (e.message || e)); }
+  }
+  function lockNow(auto) {
+    var go = function () { S.plan = null; S.dataKey = null; S.user = null; S.stage = 'login'; S.err = auto ? 'Locked after inactivity.' : ''; S.recovery = false; renderLock(); };
+    if (S.dirty) {
+      if (auto && Files.hasHandle()) return saveNow(false).then(go);
+      if (!auto && !confirm('You have unsaved changes. Lock without saving?')) return;
+    }
+    go();
+  }
+  function pend(k, v) { S.pendingSlots = S.pendingSlots || {}; S.pendingSlots[k] = v; S.dirty = true; }
+
+  var A = {
+    tab: function (id) { S.tab = id; window.scrollTo(0, 0); render(); },
+    view: function (id) { S.view = id; render(); },
+    pooled: function (id) { S.plan.settings.pooled = id === '1'; markDirty(); render(); },
+    save: function () { saveNow(false); }, saveAs: function () { saveNow(true); }, lock: function () { lockNow(false); },
+    taxfy: function (id) { S.taxFY = +id; render(); },
+    addExp: function (cat) {
+      var c = cat || prompt('Category for the new expense (e.g. Living, Health, Travel):', 'Living'); if (!c) return;
+      S.plan.expenses.push({ id: uid(), cat: c, name: 'New expense', owner: S.view === 'sue' ? 'sue' : 'dale', splitPct: 50, yearly: 0, retire: '' }); markDirty(); render();
+    },
+    delExp: function (id) { var e = S.plan.expenses.filter(function (x) { return x.id === id; })[0]; if (e && confirm('Delete "' + e.name + '"?')) { S.plan.expenses = S.plan.expenses.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
+    addOne: function () { S.plan.oneOffs.push({ id: uid(), name: 'New one-off cost', owner: 'shared', splitPct: 50, year: new Date().getFullYear() + 2, every: 0, amount: 0 }); markDirty(); render(); },
+    delOne: function (id) { if (confirm('Delete this one-off cost?')) { S.plan.oneOffs = S.plan.oneOffs.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
+    addInc: function (w) { S.plan.incomes.push({ id: uid(), owner: w, name: 'New income', kind: 'taxable', amount: 0, start: '', end: '', indexed: false }); markDirty(); render(); },
+    delInc: function (id) { var e = S.plan.incomes.filter(function (x) { return x.id === id; })[0]; if (e && confirm('Delete "' + e.name + '"?')) { S.plan.incomes = S.plan.incomes.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
+    addAcc: function (w) { S.plan.accounts.push({ id: uid(), owner: w, name: 'New account', type: 'cash', balance: 0, rate: S.plan.assumptions.cashRate, fees: 0, include: w === 'joint' ? false : undefined, note: '' }); markDirty(); render(); },
+    delAcc: function (id) { var e = S.plan.accounts.filter(function (x) { return x.id === id; })[0]; if (e && confirm('Delete "' + e.name + '"?')) { S.plan.accounts = S.plan.accounts.filter(function (x) { return x.id !== id; }); markDirty(); render(); } },
+    snap: function () { var nw = RPE.netWorth(S.plan); var d = new Date().toISOString().slice(0, 10); S.plan.history = S.plan.history.filter(function (h) { return h.date !== d; }); S.plan.history.push({ date: d, dale: nw.dale + nw.joint / 2, sue: nw.sue + nw.joint / 2, total: nw.total }); markDirty(); render(); toast('Balances recorded for ' + dfmt(d)); },
+    delSnap: function (id) { if (confirm('Delete this snapshot?')) { S.plan.history = S.plan.history.filter(function (h) { return h.date !== id; }); markDirty(); render(); } },
+    newScen: function () { var s = { id: uid(), name: 'New scenario', note: '' }; S.plan.scenarios.push(s); S.scen = s.id; markDirty(); render(); },
+    copyScen: function (id) { var o = scenById(id), s = JSON.parse(JSON.stringify(o)); s.id = uid(); s.name = o.name + ' (copy)'; if (o.id === 'base') SF.forEach(function (f) { if (f[3]) s[f[0]] = getPath(f[3]); }); S.plan.scenarios.push(s); S.scen = s.id; markDirty(); render(); },
+    delScen: function (id) { if (confirm('Delete this scenario?')) { S.plan.scenarios = S.plan.scenarios.filter(function (x) { return x.id !== id; }); S.plan.compare = S.plan.compare.filter(function (x) { return x !== id; }); if (S.scen === id) S.scen = 'base'; markDirty(); render(); } },
+    pickScen: function (id) { S.scen = id; render(); },
+    resetScen: function (id) { var s = scenById(id); SF.forEach(function (f) { delete s[f[0]]; }); markDirty(); render(); },
+    cmp: function (id) { var c = S.plan.compare, i = c.indexOf(id); if (i >= 0) c.splice(i, 1); else { c.push(id); while (c.length > 2) c.shift(); } markDirty(); render(); },
+    csv: function () {
+      var sc = scenById(S.scen), r = runScen(sc), P = S.plan.people;
+      var lines = [['Financial year', P.dale.name + ' age', P.sue.name + ' age', P.dale.name + ' work income', P.sue.name + ' work income', P.dale.name + ' interest', P.sue.name + ' interest', P.dale.name + ' from super', P.sue.name + ' from super', 'Age Pension', P.dale.name + ' tax', P.sue.name + ' tax', P.dale.name + ' spending', P.sue.name + ' spending', P.dale.name + ' cash', P.dale.name + ' super', P.sue.name + ' cash', P.sue.name + ' super', P.dale.name + ' total', P.sue.name + ' total', 'Household total', 'Events']];
+      r.rows.forEach(function (x) { var D = x.p.dale, U = x.p.sue; lines.push([x.label, D.age, U.age, D.income.work, U.income.work, D.income.interest, U.income.interest, D.fromSuper, U.fromSuper, x.agePension, D.taxPaid, U.taxPaid, D.spend + D.oneOff, U.spend + U.oneOff, D.bal.cash, D.bal.accum + D.bal.pension, U.bal.cash, U.bal.accum + U.bal.pension, D.total, U.total, x.total, x.events.map(function (e) { return e.text; }).join('; ')].map(function (v) { return typeof v === 'number' ? Math.round(v) : '"' + String(v).replace(/"/g, '""') + '"'; })); });
+      Files.download('Retirement forecast – ' + sc.name + (S.view === 'household' ? '' : ' – ' + pname(S.view)) + '.csv', lines.map(function (l) { return l.join(','); }).join('\r\n'), 'text/csv');
+    },
+    resetA: function () { if (confirm('Reset all assumptions to the built-in defaults? Your accounts, budget and income are not affected.')) { S.plan.assumptions = RP_DEFAULT_PLAN().assumptions; markDirty(); render(); } },
+    pwMe: function () { var p = readPw('me'); if (!p) return; pend(S.user === 'recovery' ? 'dale' : S.user, p); render(); toast('Password changed – press Save to apply it.'); },
+    pwSue: function () { var p = readPw('sue'); if (!p) return; pend('sue', p); render(); toast(pname('sue') + "'s password set – press Save to apply it."); },
+    rmSue: function () { if (confirm('Remove ' + pname('sue') + "'s access? She won't be able to open the plan until you set a new password.")) { pend('sue', null); delete S.file.slots.sue; render(); } },
+    newRk: function () { if (S.newRecovery && !confirm('Create another new key?')) return; S.newRecovery = Vault.newRecoveryKey(); pend('recovery', S.newRecovery); render(); },
+    helpAll: function (id) { S.helpExpand = id === '1'; S.helpOpen = null; document.querySelectorAll('details.help').forEach(function (d) { d.open = id === '1'; }); },
+    helpGo: function (id) { var d = document.getElementById('h_' + id); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
+    print: function () { document.querySelectorAll('details.help').forEach(function (d) { d.open = true; }); window.print(); },
+    lockHelp: function (id) { S.lockHelp = id === '1'; renderLock(); window.scrollTo(0, 0); },
+    // lock screen
+    openFile: async function () { try { var f = await Files.openPicker(); if (!f || f.format !== 'retirement-plan') throw new Error('That file is not a Retirement Planner plan (.rplan). Choose the plan file from your OneDrive folder.'); S.file = f; S.stage = 'login'; S.err = ''; S.loginWho = S.loginWho || 'dale'; renderLock(); } catch (e) { if (e.name !== 'AbortError') { S.err = e.message; alert(e.message); } } },
+    reopen: async function () { try { S.file = await Files.reopenLast(); S.stage = 'login'; S.err = ''; S.loginWho = S.loginWho || 'dale'; renderLock(); } catch (e) { alert('Could not open it: ' + e.message + '\nUse "Choose plan file…" instead.'); } },
+    backFile: function () { S.stage = 'file'; S.err = ''; renderLock(); },
+    who: function (id) { S.loginWho = id; renderLock(); },
+    toggleRec: function () { S.recovery = !S.recovery; S.err = ''; renderLock(); },
+    unlock: unlockNow,
+    startCreate: function () { S.stage = 'create'; S.err = ''; renderLock(); },
+    create: async function () {
+      var a = document.getElementById('pw1_dale').value, b = document.getElementById('pw2_dale').value, c = document.getElementById('pw1_sueNew').value, d2 = document.getElementById('pw2_sueNew').value;
+      var v = function (id) { return (document.getElementById(id).value || '').trim(); };
+      var n1 = v('cr_n1'), n2 = v('cr_n2'), d1 = v('cr_d1'), d2d = v('cr_d2');
+      if (!n1 || !n2) { S.err = 'Enter both first names.'; return renderLock(); }
+      if (!d1 || !d2d) { S.err = 'Enter both dates of birth.'; return renderLock(); }
+      if (a.length < 8) { S.err = n1 + "'s password needs at least 8 characters."; return renderLock(); }
+      if (a !== b) { S.err = n1 + "'s passwords don't match."; return renderLock(); }
+      if (c && c.length < 8) { S.err = n2 + "'s password needs at least 8 characters."; return renderLock(); }
+      if (c !== d2) { S.err = n2 + "'s passwords don't match."; return renderLock(); }
+      var at65 = function (dob) { var x = new Date(dob + 'T00:00:00'); x.setFullYear(x.getFullYear() + 65); return x.toISOString().slice(0, 10); };
+      S.busy = true; S.err = ''; renderLock();
+      var plan = RP_DEFAULT_PLAN();
+      plan.people.dale.name = n1; plan.people.dale.dob = d1; plan.people.dale.retireDate = v('cr_r1') || at65(d1);
+      plan.people.sue.name = n2; plan.people.sue.dob = d2d; plan.people.sue.retireDate = v('cr_r2') || at65(d2d);
+      plan.scenarios[0].note = n1 + ' retires ' + plan.people.dale.retireDate.slice(0, 4);
+      var r = await Vault.create(plan, { dale: a, sue: c || null }, 'dale');
+      S.file = r.file; S.dataKey = r.dataKey; S.plan = null; S.pendingPlan = plan; S.newRecovery = r.recoveryKey; S.busy = false; S.stage = 'recovery'; renderLock();
+    },
+    afterCreate: async function () {
+      if (!document.getElementById('rkOk').checked) { alert('Please tick the box once you have written the recovery key down.'); return; }
+      try { var res = await Files.save(S.file, true); S.plan = S.pendingPlan; S.user = 'dale'; S.newRecovery = null; S.tab = 'dashboard'; S.dirty = false; S.lastSaved = new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit' }); render(); toast(res.mode === 'download' ? 'Downloaded ' + res.name + ' – move it into your OneDrive folder.' : 'Plan saved to ' + res.name); }
+      catch (e) { if (e.name !== 'AbortError') alert('Could not save: ' + e.message); }
+    }
+  };
+
+  /* ---------- events ---------- */
+  app.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-act]'); if (!t || t.tagName === 'SELECT') return;
+    if (t.type === 'radio' || t.type === 'checkbox') { if (A[t.dataset.act]) A[t.dataset.act](t.dataset.id); return; }
+    var f = A[t.dataset.act]; if (f) { e.preventDefault(); f(t.dataset.id); }
+  });
+  app.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.dataset.act === 'lockMins') { S.lockMins = +t.value; return; }
+    if (t.dataset.bind) {
+      var type = t.dataset.type, v = type === 'bool' ? t.checked : parseVal(t.value, type);
+      setPath(t.dataset.bind, v);
+      if (t.dataset.grp) S.plan.assumptions.updated[t.dataset.grp] = new Date().toISOString().slice(0, 10);
+      if (type === 'sel' && /accounts:.*:type$/.test(t.dataset.bind)) { var acc = S.plan.accounts.filter(function (a) { return a.id === t.dataset.bind.split(':')[1]; })[0]; if (acc && acc.type === 'db' && acc.leaveDate == null) { acc.leaveDate = ''; acc.dest = 'pension'; acc.override = ''; } }
+      markDirty(); render(); return;
+    }
+    if (t.dataset.per) { var ex = S.plan.expenses.filter(function (x) { return x.id === t.dataset.id; })[0]; ex.yearly = Math.round(parseVal(t.value, 'money') * (+t.dataset.per) * 100) / 100; markDirty(); render(); return; }
+    if (t.dataset.scen) { var sc = scenById(S.scen); sc[t.dataset.scen] = t.value; markDirty(); render(); return; }
+    if (t.dataset.sf) {
+      var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0], sc2 = scenById(S.scen);
+      var val = f[2] === 'date' ? t.value : +t.value;
+      if (sc2.id === 'base') { if (f[3]) setPath(f[3], val); else sc2.stress = val; } else sc2[f[0]] = val;
+      markDirty(); render();
+    }
+  });
+  app.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.dataset.sf && t.type === 'range') { var lab = t.parentNode.querySelector('.top2 span:last-child'); var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0]; var v = +t.value; lab.textContent = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%'; }
+  });
+  app.addEventListener('input', function (e) {
+    if (e.target.id === 'helpQ') { S.helpQ = e.target.value; var pos = e.target.selectionStart; if (S.plan) render(); else renderLock(); var q = document.getElementById('helpQ'); if (q) { q.focus(); q.setSelectionRange(pos, pos); } }
+  });
+  app.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'pw') unlockNow(); });
+  // chart tooltip
+  app.addEventListener('mousemove', function (e) {
+    var t = e.target, ch = document.getElementById('chart'); if (!ch) return;
+    var tt = ch.querySelector('.tt');
+    if (t.classList && t.classList.contains('hit')) {
+      if (!tt) { tt = document.createElement('div'); tt.className = 'tt'; ch.appendChild(tt); }
+      var r = ch.getBoundingClientRect(); tt.style.left = (e.clientX - r.left) + 'px'; tt.style.top = (e.clientY - r.top) + 'px'; tt.textContent = t.getAttribute('data-tip');
+    } else if (tt) tt.remove();
+  });
+  document.addEventListener('keydown', function (e) { if ((e.ctrlKey || e.metaKey) && e.key === 's' && S.plan) { e.preventDefault(); saveNow(false); } });
+  window.addEventListener('beforeunload', function (e) { if (S.plan && S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+  // auto-lock
+  var idle = Date.now();
+  ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(function (ev) { document.addEventListener(ev, function () { idle = Date.now(); }, { passive: true }); });
+  setInterval(function () { if (S.plan && Date.now() - idle > S.lockMins * 60000) lockNow(true); }, 30000);
+  function afterRender() {}
+
+  // start
+  Files.lastName().then(function (n) { S.lastName = n; renderLock(); });
+  renderLock();
+  window.__RP = S;
+})();
+
+</script>
+</body>
+</html>
