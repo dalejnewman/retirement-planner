@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.5.1';
+var RP_VERSION = '1.5.2';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.5.2', '2026-11-19', ['Android phones and tablets: the plan file (and every other file) is no longer greyed out when choosing the plan']],
   ['1.5.1', '2026-11-19', ['Web address for phones and tablets added to the Help guide and login screen']],
   ['1.5.0', '2026-11-19', ['Ready to use from a web address on phones and tablets', 'Names come from your plan file – no personal details are built into the planner', 'New plans start blank: enter names, birth dates and retirement dates when creating']],
   ['1.4.2', '2026-11-19', ['Phone file chooser asks for any file type', 'Login screen shows which browser or app the planner is running in, and warns if it is a built-in viewer']],
@@ -664,7 +665,7 @@ var Files = (function () {
   'use strict';
   var handle = null, lastModified = 0, fileName = 'Retirement-Plan.rplan';
   var canPick = typeof window !== 'undefined' && 'showOpenFilePicker' in window;
-  var types = [{ description: 'Retirement plan', accept: { 'application/json': ['.rplan'] } }];
+  /* No file-type filter: phones don't recognise .rplan and grey out every file when a filter is given (Chrome on Android) */
 
   function idb() {
     return new Promise(function (res, rej) {
@@ -690,7 +691,7 @@ var Files = (function () {
   }
   async function openPicker() {
     if (canPick) {
-      var hs = await window.showOpenFilePicker({ types: types, multiple: false });
+      var hs = await window.showOpenFilePicker({ multiple: false });
       var obj = await readHandle(hs[0]); remember(hs[0]); return obj;
     }
     return new Promise(function (res, rej) {
@@ -714,7 +715,7 @@ var Files = (function () {
   async function save(obj, saveAs) {
     var text = JSON.stringify(obj);
     if (canPick && (saveAs || !handle)) {
-      handle = await window.showSaveFilePicker({ suggestedName: fileName, types: types });
+      handle = await window.showSaveFilePicker({ suggestedName: fileName });
       remember(handle);
     }
     if (handle) {
