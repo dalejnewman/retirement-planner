@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.5.2';
+var RP_VERSION = '1.6.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.6.0', '2026-11-19', ['Optional "Keep me signed in on this device" – no password after a refresh', '"Continue as …" button and "Forget this device" on the login screen and Users & passwords', 'Changing a password signs out every remembered device']],
   ['1.5.2', '2026-11-19', ['Android phones and tablets: the plan file (and every other file) is no longer greyed out when choosing the plan']],
   ['1.5.1', '2026-11-19', ['Web address for phones and tablets added to the Help guide and login screen']],
   ['1.5.0', '2026-11-19', ['Ready to use from a web address on phones and tablets', 'Names come from your plan file – no personal details are built into the planner', 'New plans start blank: enter names, birth dates and retirement dates when creating']],
@@ -634,7 +635,8 @@ var Vault = (function () {
   }
   async function seal(file, dataKey, plan, who) {
     file.data = await encryptData(dataKey, plan);
-    file.meta = { savedAt: new Date().toISOString(), savedBy: who, rev: ((file.meta && file.meta.rev) || 0) + 1, appVersion: (typeof RP_VERSION !== 'undefined' ? RP_VERSION : ''),
+    var id = fileId(file);
+    file.meta = { id: id, savedAt: new Date().toISOString(), savedBy: who, rev: ((file.meta && file.meta.rev) || 0) + 1, appVersion: (typeof RP_VERSION !== 'undefined' ? RP_VERSION : ''),
       names: plan && plan.people ? { dale: plan.people.dale.name, sue: plan.people.sue.name } : undefined };
     return file;
   }
@@ -657,7 +659,46 @@ var Vault = (function () {
     var bad = false; try { await unlock(r.file, 'dale', 'x'); } catch (e) { bad = true; }
     return u1.plan.hello === 'world' && u2.plan.hello === 'world' && bad;
   }
-  return { create: create, seal: seal, unlock: unlock, setSlot: setSlot, removeSlot: removeSlot, newRecoveryKey: newRecoveryKey, selfTest: selfTest, ITER: ITER };
+  /* ----- "Keep me signed in on this device" -----
+     The password is never stored. The plan's data key is kept encrypted under a device key that is
+     created inside this browser as non-extractable (it can be used here but never copied out).
+     A remembered sign-in stops working as soon as that person's password is changed. */
+  function fileId(file) { return (file.meta && file.meta.id) || (file.slots && file.slots.recovery && file.slots.recovery.salt) || 'plan'; }
+  function ddb() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open('retirement-planner-device', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+      r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    });
+  }
+  async function dget(k) { var d = await ddb(); return new Promise(function (res) { var q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = function () { res(q.result || null); }; q.onerror = function () { res(null); }; }); }
+  async function dput(k, v) { var d = await ddb(); return new Promise(function (res, rej) { var t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = function () { res(); }; t.onerror = function () { rej(t.error); }; }); }
+  async function ddel(k) { var d = await ddb(); return new Promise(function (res) { var t = d.transaction('kv', 'readwrite'); t.objectStore('kv').delete(k); t.oncomplete = function () { res(); }; t.onerror = function () { res(); }; }); }
+  async function deviceKey() {
+    var k = await dget('deviceKey');
+    if (!k) { k = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']); await dput('deviceKey', k); }
+    return k;
+  }
+  var Device = {
+    remember: async function (file, who, dataKey) {
+      if (!file.slots[who]) return;
+      var dk = await deviceKey(), raw = await crypto.subtle.exportKey('raw', dataKey), iv = rand(12);
+      var ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dk, raw);
+      await dput('cred:' + fileId(file), { who: who, slotSalt: file.slots[who].salt, iv: b64(iv), ct: b64(ct), at: new Date().toISOString() });
+    },
+    info: async function (file) { try { var e = await dget('cred:' + fileId(file)); return e ? { who: e.who, at: e.at, valid: !!(file.slots[e.who] && file.slots[e.who].salt === e.slotSalt) } : null; } catch (x) { return null; } },
+    recall: async function (file) {
+      var e = await dget('cred:' + fileId(file)); if (!e) return null;
+      var slot = file.slots[e.who];
+      if (!slot || slot.salt !== e.slotSalt) { await ddel('cred:' + fileId(file)); return { revoked: true, who: e.who }; }
+      var dk = await deviceKey();
+      var raw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(e.iv) }, dk, unb64(e.ct));
+      var key = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+      return { who: e.who, dataKey: key, plan: await decryptData(key, file.data) };
+    },
+    forget: async function (file) { await ddel('cred:' + fileId(file)); }
+  };
+  return { Device: Device, fileId: fileId, create: create, seal: seal, unlock: unlock, setSlot: setSlot, removeSlot: removeSlot, newRecoveryKey: newRecoveryKey, selfTest: selfTest, ITER: ITER };
 })();
 
 /* File access: File System Access API where available (Edge/Chrome), download fallback otherwise */
@@ -830,6 +871,7 @@ var RP_HELP = [
 <li><b>Change my password:</b> <i>Users &amp; passwords</i> › enter it twice › <b>Change password</b> › <b>Save</b>.</li>
 <li><b>{P2} forgot their password:</b> {P1} logs in › <i>Users &amp; passwords</i> › set a new one for {P2} › <b>Save</b>.</li>
 <li><b>{P1} forgot his password:</b> on the login screen click <b>Forgot password? Use recovery key</b>, type the key, then set a new password and <b>Save</b>.</li>
+<li><b>Keep me signed in on this device:</b> tick the box under the password (or use <i>Users &amp; passwords › This device</i>). After a refresh or when you come back, just choose the plan file – or tap <b>Continue as …</b> – with no password. The password itself is never stored. Only do this on your own phone, tablet or computer with a screen lock. <b>Forget this device</b> turns it off; changing your password turns it off on every device.</li>
 <li><b>New recovery key:</b> {P1} can create one any time; the old key stops working after you Save.</li>
 <li>If both {P1}'s password and the recovery key are lost, the plan cannot be opened by anyone – that's what keeps it private.</li>
 </ul>`],
@@ -1405,6 +1447,11 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         '<div class="field"><label>' + esc(pname('dale')) + ' – date of birth</label>' + inp('people.dale.dob', 'date', '', { label: 'Date of birth' }) + '</div>' +
         '<div class="field"><label>' + esc(pname('sue')) + ' – date of birth</label>' + inp('people.sue.dob', 'date', '', { label: 'Date of birth' }) + '</div></div></section>';
     }
+    var di = S.devInfo;
+    h += '<section class="card"><h2>This device</h2>' + (di && di.valid
+      ? '<div>Kept signed in as <b>' + esc(pname(di.who)) + '</b> since ' + new Date(di.at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) + '. Refreshing or reopening only needs the plan file – no password.</div><button class="btn danger" data-act="forgetDev" style="align-self:flex-start">Forget this device</button>'
+      : '<div class="sub">This device asks for the password each time.</div><button class="btn" data-act="keepDev" style="align-self:flex-start">Keep me signed in on this device</button>') +
+      '<div class="hint">Use only on your own devices with a screen lock. Your password is never stored – changing it signs out every remembered device.</div></section>';
     h += '<section class="card"><h2>This plan file</h2><table><tbody><tr><td>File</td><td>' + esc(Files.name()) + '</td></tr><tr><td>Last saved</td><td>' + (m.savedAt ? new Date(m.savedAt).toLocaleString('en-AU') + ' by ' + esc(m.savedBy === 'recovery' ? 'recovery key' : pname(m.savedBy)) : '–') + '</td></tr><tr><td>Planner version</td><td>v' + RP_VERSION + ' (' + dfmt(RP_RELEASED) + ')</td></tr><tr><td>Plan last saved with</td><td>' + (m.appVersion ? 'v' + esc(m.appVersion) : 'v1.3.1 or earlier') + '</td></tr><tr><td>Times saved</td><td>' + (m.rev || 1) + '</td></tr><tr><td>Encryption</td><td>AES-256-GCM, keys from your password (PBKDF2, ' + Vault.ITER.toLocaleString() + ' rounds)</td></tr><tr><td>Auto-lock</td><td><select class="in w140" data-act="lockMins" aria-label="Auto-lock">' + [5, 15, 30, 60].map(function (n) { return '<option value="' + n + '"' + (S.lockMins === n ? ' selected' : '') + '>' + n + ' minutes idle</option>'; }).join('') + '</select></td></tr></tbody></table>' +
       '<div class="row"><button class="btn" data-act="saveAs">Save a copy as…</button></div><div class="hint">Hiding each person\'s figures from the other can be switched on in a later version.</div></section></div>';
     return h;
@@ -1449,10 +1496,14 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         '<div style="border-top:1px solid var(--line);padding-top:14px" class="field"><b>First time?</b><button class="btn" data-act="startCreate">Create a new plan</button><span class="hint">You enter your own names, dates and figures. Nothing is filled in for you.</span></div>';
     } else if (S.stage === 'login') {
       h += '<div class="field"><span class="lab">Plan file</span><div class="row"><b>' + esc(Files.name()) + '</b><button class="btn link" data-act="backFile">Change…</button></div></div>';
+      if (S.devInfo && S.devInfo.valid && !S.recovery) {
+        h += '<button class="btn primary" data-act="contRem">Continue as ' + esc(pname(S.devInfo.who)) + '</button><div class="hint">Kept signed in on this device. <button class="btn link" data-act="forgetDev" style="padding:0;min-height:0">Not ' + esc(pname(S.devInfo.who)) + '? Forget this device</button></div><div style="border-top:1px solid var(--line)"></div>';
+      }
       if (!S.recovery) {
         h += '<fieldset style="border:0;margin:0;padding:0" class="field"><legend class="lab" style="margin-bottom:8px">Who\'s using it?</legend><div class="who">' + ['dale', 'sue'].map(function (w) {
           return '<label class="' + (S.loginWho === w ? 'on' : '') + '"><input type="radio" name="who" value="' + w + '" ' + (S.loginWho === w ? 'checked' : '') + ' data-act="who" data-id="' + w + '" style="width:18px;height:18px;accent-color:var(--dale)">' + (w === 'dale' ? esc(pname('dale')) + ' <span class="chip dale">Admin</span>' : esc(pname('sue'))) + '</label>'; }).join('') + '</div></fieldset>' +
-          '<div class="field"><label for="pw">Password</label><input class="in" type="password" id="pw" autocomplete="current-password" autofocus></div>';
+          '<div class="field"><label for="pw">Password</label><input class="in" type="password" id="pw" autocomplete="current-password" autofocus></div>' +
+          '<label class="row" style="font-size:14px;gap:8px;align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" id="keepMe"' + (S.keepMe ? ' checked' : '') + ' style="width:18px;height:18px;margin-top:2px;flex:0 0 auto"><span>Keep me signed in on this device<br><span class="hint">Only on your own phone, tablet or computer with a screen lock. Anyone using this device could open the plan.</span></span></label>';
       } else {
         h += '<div class="field"><label for="pw">Recovery key</label><input class="in" type="text" id="pw" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>';
       }
@@ -1479,19 +1530,43 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   }
 
   /* ---------- actions ---------- */
+  function enterPlan(plan, dataKey, who) {
+    S.plan = plan; S.dataKey = dataKey; S.user = who; S.busy = false; S.view = 'household'; S.tab = who === 'recovery' ? 'users' : 'dashboard';
+    S.dirty = false; S.lastSaved = null;
+    S.file.meta = S.file.meta || {}; S.file.meta.id = Vault.fileId(S.file);
+    if (who === 'recovery') setTimeout(function () { toast('Set a new password for ' + pname('dale') + ' below, then Save.'); }, 300);
+    var fv = S.file.meta && S.file.meta.appVersion;
+    if (fv && rpCompareVersions(fv, RP_VERSION) > 0) setTimeout(function () { alert('This plan was saved with a newer planner (v' + fv + '). You are using v' + RP_VERSION + '.\n\nPlease use the latest planner – saving with this older copy could lose newer settings.'); }, 300);
+    render();
+  }
+  // after a plan file is chosen: sign straight in if this device was told to remember someone
+  async function afterFileChosen(auto) {
+    S.stage = 'login'; S.err = ''; S.loginWho = S.loginWho || 'dale';
+    S.devInfo = await Vault.Device.info(S.file);
+    if (S.devInfo && S.devInfo.valid && auto) return continueRemembered();
+    if (S.devInfo && !S.devInfo.valid) { await Vault.Device.forget(S.file); S.devInfo = null; S.err = 'The password was changed, so this device needs it again.'; }
+    renderLock();
+  }
+  async function continueRemembered() {
+    try {
+      var r = await Vault.Device.recall(S.file);
+      if (!r) { S.devInfo = null; return renderLock(); }
+      if (r.revoked) { S.devInfo = null; S.err = 'The password was changed, so this device needs it again.'; return renderLock(); }
+      S.devInfo = await Vault.Device.info(S.file);
+      enterPlan(r.plan, r.dataKey, r.who);
+      setTimeout(function () { toast('Signed in as ' + pname(r.who) + ' (kept signed in on this device)'); }, 200);
+    } catch (e) { S.devInfo = null; S.err = 'Could not use the saved sign-in on this device – please enter your password.'; renderLock(); }
+  }
   async function unlockNow() {
     var pw = (document.getElementById('pw') || {}).value || '';
     if (!pw) { S.err = 'Enter your ' + (S.recovery ? 'recovery key' : 'password') + '.'; return renderLock(); }
     var who = S.recovery ? 'recovery' : S.loginWho;
+    var kb = document.getElementById('keepMe'); S.keepMe = !!(kb && kb.checked);
     S.busy = true; S.err = ''; renderLock();
     try {
       var r = await Vault.unlock(S.file, who, pw);
-      S.plan = r.plan; S.dataKey = r.dataKey; S.user = who; S.busy = false; S.view = 'household'; S.tab = who === 'recovery' ? 'users' : 'dashboard';
-      S.dirty = false; S.lastSaved = null;
-      if (who === 'recovery') setTimeout(function () { toast('Set a new password for ' + pname('dale') + ' below, then Save.'); }, 300);
-      var fv = S.file.meta && S.file.meta.appVersion;
-      if (fv && rpCompareVersions(fv, RP_VERSION) > 0) setTimeout(function () { alert('This plan was saved with a newer planner (v' + fv + '). You are using v' + RP_VERSION + '.\n\nPlease open Retirement-Planner-v' + fv + ' (or newer) from OneDrive – saving with this older copy could lose newer settings.'); }, 300);
-      render();
+      if (S.keepMe && who !== 'recovery') { try { await Vault.Device.remember(S.file, who, r.dataKey); S.devInfo = await Vault.Device.info(S.file); } catch (x) { setTimeout(function () { toast('This browser could not keep you signed in.'); }, 400); } }
+      enterPlan(r.plan, r.dataKey, who);
     } catch (e) { S.busy = false; S.err = e.message; renderLock(); }
   }
   async function saveNow(saveAs) {
@@ -1564,9 +1639,12 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     helpGo: function (id) { var d = document.getElementById('h_' + id); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
     print: function () { document.querySelectorAll('details.help').forEach(function (d) { d.open = true; }); window.print(); },
     lockHelp: function (id) { S.lockHelp = id === '1'; renderLock(); window.scrollTo(0, 0); },
+    contRem: function () { continueRemembered(); },
+    forgetDev: async function () { await Vault.Device.forget(S.file); S.devInfo = null; if (S.plan) { render(); toast('This device will ask for the password next time.'); } else renderLock(); },
+    keepDev: async function () { if (S.user === 'recovery') { alert('Set a new password first, then sign in with it.'); return; } try { await Vault.Device.remember(S.file, S.user, S.dataKey); S.devInfo = await Vault.Device.info(S.file); render(); toast('This device will keep you signed in.'); } catch (e) { alert('This browser could not keep you signed in: ' + e.message); } },
     // lock screen
-    openFile: async function () { try { var f = await Files.openPicker(); if (!f || f.format !== 'retirement-plan') throw new Error('That file is not a Retirement Planner plan (.rplan). Choose the plan file from your OneDrive folder.'); S.file = f; S.stage = 'login'; S.err = ''; S.loginWho = S.loginWho || 'dale'; renderLock(); } catch (e) { if (e.name !== 'AbortError') { S.err = e.message; alert(e.message); } } },
-    reopen: async function () { try { S.file = await Files.reopenLast(); S.stage = 'login'; S.err = ''; S.loginWho = S.loginWho || 'dale'; renderLock(); } catch (e) { alert('Could not open it: ' + e.message + '\nUse "Choose plan file…" instead.'); } },
+    openFile: async function () { try { var f = await Files.openPicker(); if (!f || f.format !== 'retirement-plan') throw new Error('That file is not a Retirement Planner plan (.rplan). Choose the plan file from your OneDrive folder.'); S.file = f; await afterFileChosen(true); } catch (e) { if (e.name !== 'AbortError') { S.err = e.message; alert(e.message); } } },
+    reopen: async function () { try { S.file = await Files.reopenLast(); await afterFileChosen(true); } catch (e) { alert('Could not open it: ' + e.message + '\nUse "Choose plan file…" instead.'); } },
     backFile: function () { S.stage = 'file'; S.err = ''; renderLock(); },
     who: function (id) { S.loginWho = id; renderLock(); },
     toggleRec: function () { S.recovery = !S.recovery; S.err = ''; renderLock(); },
