@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.8.1';
+var RP_VERSION = '1.8.2';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.8.2', '2026-11-20', ['Clearer "money runs out" wording on the Dashboard, split table and Forecast', 'Shared splits show your own share in your view ("% Sue" in Sue\'s view)', 'Defined benefit: estimate the multiple from years of service; Notes column labelled', 'Scenario ticks explained']],
   ['1.8.1', '2026-11-19', ['Tablets showing the desktop version of sites are now recognised as tablets (view only)', '"Editing on this device" setting on Users & passwords to override the automatic choice']],
   ['1.8.0', '2026-11-19', ['Phones and tablets are view only: change figures to try ideas, nothing is saved', '"Discard changes" puts the saved figures back', 'On a PC, if saving fails the planner offers to download your changes so nothing is lost']],
   ['1.7.0', '2026-11-19', ['One retirement date per person (on Income & Tax) drives every screen; work income stops on it', 'Each cash account\'s interest rate is used every year; super accounts can have their own return', 'One-off costs: "Paid" tick so paid items aren\'t counted again', 'Tax card and milestones follow the Dale / Sue view', 'Dashboard shows a retirement card for each person', 'Sue\'s views show only her one-off costs, retirement line and her share of spending', 'One-off costs are set by financial year (fixes costs dated this year being missed)', 'Market-fall test applies in the year you\'ve both retired', 'Clearer wording: cash rate and super return are separate settings']],
@@ -833,7 +834,7 @@ var RP_HELP = [
  ['dash', 'Dashboard', `
 <ul>
 <li><b>Net worth today</b> – all accounts, including any defined benefit estimate.</li>
-<li><b>Money lasts until</b> – the ages you'll both be when the money runs out (or "Beyond 100").</li>
+<li><b>Shared money runs out when you're …</b> (Pooled) – the ages you'll <i>both</i> be in the year the shared money runs out. The line underneath shows how long each person's own money lasts on its own. With <b>Separate</b> selected it shows each person's own money instead.</li>
 <li><b>Retirement spend</b> – the combined yearly amount, each person's share, and the most you could spend and still last to the "plan to" age (95).</li>
 <li><b>Projected balances</b> – hover over a bar to see each person's balance that year. Dashed lines mark retirements.</li>
 <li><b>Retirement income – combined and split</b> – for the first full year you're both retired: what each of you spends and where it comes from (super, Age Pension, cash). Change the split here.</li>
@@ -843,7 +844,7 @@ var RP_HELP = [
 <ul>
 <li><b>Change an amount:</b> type in <b>Weekly</b>, <b>Monthly</b> or <b>Yearly</b> – the others update when you press Tab or click away.</li>
 <li><b>In retirement /yr:</b> leave blank if it stays the same; enter a new amount if it changes; enter <b>0</b> if it stops (e.g. work costs).</li>
-<li><b>Owner:</b> {P1}, {P2} or Shared. For Shared, the % is <b>{P1}'s</b> share (50 = half each). Enter the <b>full</b> bill.</li>
+<li><b>Owner:</b> {P1}, {P2} or Shared. For Shared, enter the <b>full</b> bill and the split %: in your own view it's <i>your</i> share ("% {P2}" in {P2}'s view), in the Household view it's {P1}'s share. 50 = half each.</li>
 <li><b>Add:</b> <b>+ Add</b> beside a category, or <b>+ Add expense</b> at the top for a new category. Then type the name and amount.</li>
 <li><b>Move</b> an item to another category with the drop-down on the right; <b>delete</b> with the red bin (it asks first).</li>
 <li><b>One-off future costs:</b> cars, trips, renovations. Choose the financial year it happens in, the cost in today's dollars, and "repeat every" years (0 = once). Tick <b>Paid</b> once it's paid – your balances already reflect it, so it isn't counted again.</li>
@@ -874,7 +875,7 @@ var RP_HELP = [
 <li>Use the <b>Combined / {P1} / {P2}</b> switch (top right) to see the comparison, chart and year-by-year table for the household or for each of you. The person views show income, super drawdowns, Age Pension, tax, spending, balances and any top-ups between you.</li>
 <li><b>Base plan</b> is your real plan – changing it here changes the plan everywhere.</li>
 <li><b>+ New scenario</b> or the copy button makes a "what if" (e.g. <i>Retire at 58</i>, <i>Spend $140k</i>). Click its name to edit: retirement dates, spending, split, returns, inflation, and a <b>market fall</b> test in {P1}'s retirement year.</li>
-<li>Tick <b>two</b> scenarios to compare them side by side.</li>
+<li>The ticks only choose which <b>two</b> scenarios appear side by side in the comparison table. Scenarios never change your plan or the Dashboard – only the <b>Base plan</b> does. Delete any you don't need (e.g. the examples).</li>
 <li>The <b>year by year</b> table shows spending, tax, Age Pension and balances; red rows mean the money has run out.</li>
 <li><b>Export to Excel (CSV)</b> saves the year-by-year figures to open in Excel.</li>
 </ul>`],
@@ -1001,20 +1002,29 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     if (s === '') return type === 'optmoney' ? '' : 0;
     var n = parseFloat(s); if (isNaN(n)) n = 0;
     if (type === 'pct') return n / 100;
+    if (type === 'share2') return Math.max(0, Math.min(100, 100 - n)); // shown as Partner 2's share, stored as Partner 1's
+    if (type === 'share1') return Math.max(0, Math.min(100, n));
     return n;
   }
   function showVal(v, type) {
     if (type === 'pct') return v == null || v === '' ? '' : +(v * 100).toFixed(3);
+    if (type === 'share2') return v == null || v === '' ? 50 : +(100 - v).toFixed(2);
     if (type === 'money' || type === 'optmoney') return v === '' || v == null ? '' : (+v).toLocaleString('en-AU', { maximumFractionDigits: 2 });
     return v == null ? '' : v;
   }
   function inp(path, type, cls, extra) {
     var v = getPath(path), ro = (extra && extra.ro) ? ' disabled' : '';
     var t = type === 'date' ? 'date' : 'text';
-    var mode = (type === 'money' || type === 'optmoney' || type === 'num' || type === 'pct') ? ' inputmode="decimal"' : '';
+    var isNum = type === 'money' || type === 'optmoney' || type === 'num' || type === 'pct' || type === 'share1' || type === 'share2';
+    var mode = isNum ? ' inputmode="decimal"' : '';
     var al = extra && extra.label ? ' aria-label="' + esc(extra.label) + '"' : '';
     var ph = extra && extra.ph ? ' placeholder="' + esc(extra.ph) + '"' : '';
-    return '<input class="in ' + (cls || '') + ((type === 'money' || type === 'optmoney' || type === 'num' || type === 'pct') ? ' num' : '') + '" type="' + t + '" data-bind="' + esc(path) + '" data-type="' + type + '" value="' + esc(showVal(v, type)) + '"' + mode + al + ph + ro + '>';
+    return '<input class="in ' + (cls || '') + (isNum ? ' num' : '') + '" type="' + t + '" data-bind="' + esc(path) + '" data-type="' + type + '" value="' + esc(showVal(v, type)) + '"' + mode + al + ph + ro + '>';
+  }
+  // A shared split is stored as Partner 1's %; each person's own view shows (and edits) their own share
+  function splitInp(path) {
+    var w = S.view === 'sue' ? 'sue' : 'dale';
+    return '<span class="row" style="gap:4px;flex-wrap:nowrap">' + inp(path, w === 'sue' ? 'share2' : 'share1', 'w70', { label: pname(w) + "'s share %" }) + '<span class="hint">% ' + esc(pname(w)) + '</span></span>';
   }
   function sel(path, opts, cls, extra) {
     var v = getPath(path), ro = (extra && extra.ro) ? ' disabled' : '';
@@ -1078,12 +1088,19 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     var dbNote = nw.dbEstimate ? ' (incl. defined benefit ' + kM(nw.dbEstimate) + ')' : '';
     var fy0 = C.full.rows[0], taxD = fy0.p.dale.taxPaid, taxS = fy0.p.sue.taxPaid;
     var lastP = pool.lasts.household, lD = sep.lasts.dale, lS = sep.lasts.sue;
-    var lastMain, lastSub;
+    var lastMain, lastSub, lastLab;
     if (S.view === 'household') {
-      lastMain = p.settings.pooled ? (lastP ? esc(pname('dale')) + ' ' + lastP.ageDale + ' / ' + esc(pname('sue')) + ' ' + lastP.ageSue : 'Beyond 100') : (esc(pname('dale')) + ' ' + (lD ? lD.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (lS ? lS.age : '100+'));
-      lastSub = p.settings.pooled ? 'Separate: ' + esc(pname('dale')) + ' ' + (lD ? lD.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (lS ? lS.age : '100+') : 'Pooled: ' + (lastP ? esc(pname('dale')) + ' ' + lastP.ageDale : 'beyond 100');
+      if (p.settings.pooled) {
+        lastLab = 'Shared money runs out when you\'re';
+        lastMain = lastP ? esc(pname('dale')) + ' ' + lastP.ageDale + ' · ' + esc(pname('sue')) + ' ' + lastP.ageSue : 'Beyond 100';
+        lastSub = (lastP ? RPE.fyLabel(lastP.fy) + ' · pooled. ' : 'Pooled. ') + 'Each on own money: ' + esc(pname('dale')) + ' to ' + (lD ? lD.age : '100+') + ', ' + esc(pname('sue')) + ' to ' + (lS ? lS.age : '100+');
+      } else {
+        lastLab = 'Each person\'s money lasts until';
+        lastMain = esc(pname('dale')) + ' ' + (lD ? lD.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (lS ? lS.age : '100+');
+        lastSub = 'Separate – each paying own share. ' + (lastP ? 'If pooled, shared money runs out when ' + esc(pname('dale')) + ' ' + lastP.ageDale + ' · ' + esc(pname('sue')) + ' ' + lastP.ageSue : 'If pooled, it lasts beyond 100');
+      }
     } else {
-      var l = sep.lasts[S.view]; lastMain = l ? 'Age ' + l.age : 'Beyond 100'; lastSub = 'Paying own share (separate)';
+      var l = sep.lasts[S.view]; lastLab = esc(pname(S.view)) + '\'s own money lasts until'; lastMain = l ? 'Age ' + l.age : 'Beyond 100'; lastSub = 'Paying own share from own money' + (p.settings.pooled && lastP ? '. Pooled, the shared money runs out when ' + esc(pname(S.view)) + ' is ' + (S.view === 'dale' ? lastP.ageDale : lastP.ageSue) : '');
     }
     function retTile(w) {
       var dR = new Date(P[w].retireDate + 'T00:00:00'), now = new Date();
@@ -1093,7 +1110,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     var split = C.base.splitPct;
     h += '<div class="grid">' +
       kpi('Net worth today', kM(nwv), S.view === 'household' ? esc(pname('dale')) + ' ' + kM(nw.dale) + ' · ' + esc(pname('sue')) + ' ' + kM(nw.sue) + dbNote : dbNote.replace(/^ \(|\)$/g, '')) +
-      kpi('Money lasts until', lastMain, lastSub, true) +
+      kpi(lastLab, lastMain, lastSub, true) +
       whoList().map(retTile).join('') +
       kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
       (S.view === 'household' ? kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) : kpi(esc(pname(S.view)) + "'s tax " + fy0.label, kM(S.view === 'dale' ? taxD : taxS), 'Effective rate ' + pct(fy0.p[S.view].tax.taxable > 0 ? fy0.p[S.view].taxPaid / fy0.p[S.view].tax.taxable : 0))) +
@@ -1118,7 +1135,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     return h;
   }
   function kpi(lab, val, sub, dark) {
-    return '<div class="card' + (dark ? ' dark' : '') + '" style="gap:4px"><div class="k-lab">' + lab + '</div><div class="k-val">' + val + '</div><div class="k-sub">' + (sub || '') + '</div></div>';
+    return '<div class="card' + (dark ? ' dark' : '') + '" style="gap:4px"><div class="k-lab">' + lab + '</div><div class="k-val"' + (String(val).replace(/<[^>]+>/g, '').length > 13 ? ' style="font-size:22px"' : '') + '>' + val + '</div><div class="k-sub">' + (sub || '') + '</div></div>';
   }
   function taxTip() {
     var r = C.base.rows.filter(function (x) { return x.p.sue.retired && x.p.dale.workFrac > 0.5; })[0];
@@ -1141,7 +1158,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     function tr(lab, f, strong) { return '<tr' + (strong ? ' class="tot"' : '') + '><th scope="row">' + lab + '</th><td class="num">' + f(d) + '</td><td class="num">' + f(s) + '</td><td class="num">' + f({ need: d.need + s.need, sup: d.sup + s.sup, ap: d.ap + s.ap, other: d.other + s.other, cash: d.cash + s.cash, tax: d.tax + s.tax }) + '</td></tr>'; }
     var h = '<section class="card"><div class="row"><h2>Retirement income – combined and split</h2><span class="sub">First full year you\'re both retired: ' + both.label + ' (future dollars)</span>' +
       '<label class="row ml" style="gap:8px;font-size:14px;flex-wrap:nowrap">Split ' + sel('settings.splitMode', [['percent', 'By percentage'], ['budget', "By each person's budget"]], 'w200', { label: 'Split method' }) +
-      (p.settings.splitMode === 'percent' ? inp('settings.splitPct', 'num', 'w70', { label: esc(pname('dale')) + ' share %' }) + '% ' + esc(pname('dale')) : '') + '</label></div>' +
+      (p.settings.splitMode === 'percent' ? splitInp('settings.splitPct') : '') + '</label></div>' +
       '<div class="tw" style="border:0"><table><thead><tr><th>Per year</th><th class="num dale">' + esc(pname('dale')) + '</th><th class="num sue">' + esc(pname('sue')) + '</th><th class="num">Combined</th></tr></thead><tbody>' +
       tr('Spending to cover', function (x) { return kM(x.need); }, true) +
       tr('From super pension (tax-free)', function (x) { return kM(x.sup); }) +
@@ -1149,7 +1166,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       tr('From other income', function (x) { return kM(x.other); }) +
       tr('From cash savings & interest', function (x) { return kM(x.cash); }) +
       tr('Tax payable', function (x) { return kM(x.tax); }) +
-      '<tr class="tot"><th scope="row">Money lasts until</th><td class="num">' + (l.dale ? 'Age ' + l.dale.age : '100+') + '</td><td class="num">' + (l.sue ? 'Age ' + l.sue.age : '100+') + '</td><td class="num">' + (lp ? esc(pname('dale')) + ' ' + lp.ageDale : 'Beyond 100') + '</td></tr>' +
+      '<tr class="tot"><th scope="row">Money runs out at<div class="hint" style="font-weight:400">' + esc(pname('dale')) + ' / ' + esc(pname('sue')) + ': each on own money · Combined: shared pot</div></th><td class="num">' + (l.dale ? 'Age ' + l.dale.age : 'Beyond 100') + '</td><td class="num">' + (l.sue ? 'Age ' + l.sue.age : 'Beyond 100') + '</td><td class="num">' + (lp ? esc(pname('dale')) + ' ' + lp.ageDale + ' · ' + esc(pname('sue')) + ' ' + lp.ageSue : 'Beyond 100') + '</td></tr>' +
       '</tbody></table></div></section>';
     return h;
   }
@@ -1212,7 +1229,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       list.forEach(function (e) {
         var b = 'expenses:' + e.id + ':';
         rows += '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Expense name' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td>' +
-          '<td class="nw">' + (e.owner === 'shared' ? '<span class="row" style="gap:4px;flex-wrap:nowrap">' + inp(b + 'splitPct', 'num', 'w70', { label: esc(pname('dale')) + ' share %' }) + '<span class="hint">% ' + esc(pname('dale')) + '</span></span>' : '') + '</td>' +
+          '<td class="nw">' + (e.owner === 'shared' ? splitInp(b + 'splitPct') : '') + '</td>' +
           '<td class="num"><input class="in num w90" data-per="52" data-id="' + e.id + '" value="' + esc(((+e.yearly || 0) / 52).toFixed(2)) + '" aria-label="Weekly" inputmode="decimal"></td>' +
           '<td class="num"><input class="in num w90" data-per="12" data-id="' + e.id + '" value="' + esc(((+e.yearly || 0) / 12).toFixed(2)) + '" aria-label="Monthly" inputmode="decimal"></td>' +
           '<td class="num">' + inp(b + 'yearly', 'money', 'w110', { label: 'Yearly' }) + '</td>' +
@@ -1226,7 +1243,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     var fyOpts = []; for (var fy = C.base.startFY; fy < C.base.startFY + 30; fy++) fyOpts.push([String(fy), RPE.fyLabel(fy)]);
     var oo = (p.oneOffs || []).filter(function (o) { return S.view === 'household' || RPE.shareOf(o.owner, o.splitPct == null ? 50 : o.splitPct, S.view) > 0; }).map(function (o) {
       var b = 'oneOffs:' + o.id + ':';
-      return '<tr' + (o.paid ? ' style="opacity:.6"' : '') + '><td>' + inp(b + 'name', 'text', '', { label: 'Item' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td><td>' + (o.owner === 'shared' ? inp(b + 'splitPct', 'num', 'w70', { label: pname('dale') + ' share %' }) : '') + '</td><td>' + (o.paid ? '<span class="hint">–</span>' : sel(b + 'fy', fyOpts, 'w120', { label: 'Financial year' })) + '</td><td>' + (o.paid ? '' : inp(b + 'every', 'num', 'w70', { label: 'Repeat every N years (0 = once)' })) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Cost' }) + '</td><td class="nw"><label class="row" style="gap:6px;flex-wrap:nowrap;font-size:13px"><input type="checkbox" data-bind="' + b + 'paid" data-type="bool"' + (o.paid ? ' checked' : '') + ' style="width:18px;height:18px">Paid</label></td><td class="num">' + delBtn('delOne', o.id, 'Delete one-off cost') + '</td></tr>';
+      return '<tr' + (o.paid ? ' style="opacity:.6"' : '') + '><td>' + inp(b + 'name', 'text', '', { label: 'Item' }) + '</td><td>' + sel(b + 'owner', [['dale', pname('dale')], ['sue', pname('sue')], ['shared', 'Shared']], 'w110', { label: 'Owner' }) + '</td><td>' + (o.owner === 'shared' ? splitInp(b + 'splitPct') : '') + '</td><td>' + (o.paid ? '<span class="hint">–</span>' : sel(b + 'fy', fyOpts, 'w120', { label: 'Financial year' })) + '</td><td>' + (o.paid ? '' : inp(b + 'every', 'num', 'w70', { label: 'Repeat every N years (0 = once)' })) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Cost' }) + '</td><td class="nw"><label class="row" style="gap:6px;flex-wrap:nowrap;font-size:13px"><input type="checkbox" data-bind="' + b + 'paid" data-type="bool"' + (o.paid ? ' checked' : '') + ' style="width:18px;height:18px">Paid</label></td><td class="num">' + delBtn('delOne', o.id, 'Delete one-off cost') + '</td></tr>';
     }).join('');
     h += '<section class="card"><div class="row"><h2>One-off future costs</h2><span class="sub">Big items that don\'t happen every year · cost in today\'s dollars</span><button class="btn primary ml" data-act="addOne">+ Add one-off cost</button></div>' +
       (oo ? '<div class="tw" style="border:0"><table><thead><tr><th>Item</th><th>Owner</th><th>Split</th><th>When</th><th>Repeat every (yrs)</th><th class="num">Cost</th><th>Paid?</th><th></th></tr></thead><tbody>' + oo + '</tbody></table></div>' : '<div class="sub">None yet – e.g. replacing a car in 2032 every 8 years, a big trip, home repairs.</div>') + '</section>';
@@ -1300,7 +1317,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
             '<td class="num">' + (a.type === 'db' ? '<b>' + money(RPE.dbAmount(a)) + '</b>' : inp(b + 'balance', 'money', 'w110', { label: 'Balance' })) + '</td>' +
             '<td class="num">' + (a.type === 'cash' || a.type === 'crypto' ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'rate', 'pct', 'w70', { label: 'Interest rate %' }) + '%</span>' : (a.type === 'super' || a.type === 'pension') ? '<span class="row" style="gap:4px;flex-wrap:nowrap;justify-content:flex-end">' + inp(b + 'ret', 'pct', 'w70', { label: 'Return %', ph: (S.plan.assumptions.superReturn * 100).toFixed(1) }) + '%</span>' : '<span class="hint">' + (a.type === 'db' ? 'formula' : 'see Assumptions') + '</span>') + '</td>' +
             '<td class="num">' + (a.type === 'super' || a.type === 'pension' ? inp(b + 'fees', 'money', 'w90', { label: 'Fees per year' }) : '') + '</td>' +
-            '<td>' + inp(b + 'note', 'text', '', { label: 'Notes' }) + '</td>' +
+            '<td>' + inp(b + 'note', 'text', '', { label: 'Notes', ph: 'Your notes – not used in figures' }) + '</td>' +
             (w === 'joint' ? '<td><input type="checkbox" data-bind="' + b + 'include" data-type="bool" ' + (a.include ? 'checked' : '') + ' aria-label="Include in forecast" style="width:18px;height:18px"></td>' : '') +
             '<td>' + delBtn('delAcc', a.id, 'Delete account') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
@@ -1308,7 +1325,8 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         var b = 'accounts:' + a.id + ':', calc = (+a.multiple || 0) * (+a.finalSalary || 0);
         h += '<div class="card" style="background:var(--bg);border:0"><h3>' + esc(a.name) + ' – defined benefit</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
           '<div class="field"><label>Benefit amount (if known)</label>' + inp(b + 'override', 'optmoney', '', { label: 'Benefit amount', ph: 'use formula' }) + '<span class="hint">From the fund statement – overrides the formula</span></div>' +
-          '<div class="field"><label>Benefit multiple</label>' + inp(b + 'multiple', 'optmoney', '', { label: 'Multiple' }) + '<span class="hint">On the statement</span></div>' +
+          '<div class="field"><label>Benefit multiple</label>' + inp(b + 'multiple', 'optmoney', '', { label: 'Multiple' }) + '<span class="hint">On the statement – already includes years of service</span></div>' +
+          '<div class="field"><label>No statement? Estimate it</label><span class="row" style="gap:6px;flex-wrap:nowrap">' + inp(b + 'years', 'num', 'w70', { label: 'Years contributing' }) + '<span class="hint">yrs ×</span>' + inp(b + 'perYear', 'num', 'w70', { label: 'Multiple per year', ph: '0.21' }) + '</span><span class="hint">' + ((+a.years || 0) > 0 ? '= ' + ((+a.years) * (+a.perYear || 0.21)).toFixed(2) + ' <button class="btn link" data-act="useMult" data-id="' + a.id + '" style="padding:0;min-height:0">Use this</button>' : '0.21 a year at the standard rate') + '</span></div>' +
           '<div class="field"><label>Final salary (avg last 12 mths)</label>' + inp(b + 'finalSalary', 'money', '', { label: 'Final salary' }) + '</div>' +
           '<div class="field"><label>Leaving date</label>' + inp(b + 'leaveDate', 'date', '', { label: 'Leaving date' }) + '</div>' +
           '<div class="field"><label>On leaving, move to</label>' + sel(b + 'dest', [['pension', 'Account-based pension'], ['cash', 'Lump sum to cash'], ['split', '75% pension / 25% cash']], '', { label: 'Destination' }) + '</div></div>' +
@@ -1350,16 +1368,16 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         return '<button data-act="view" data-id="' + v[0] + '" class="' + (V === v[0] ? 'on' : '') + '" style="color:var(--ink)">' + esc(v[1]) + '</button>'; }).join('') + '</div>' +
       '<button class="btn" data-act="csv">Export to Excel (CSV)</button></div>';
     function lastsFor(s) {
-      if (isH) { var l = runScen(s).lasts.household; return l ? pname('dale') + ' ' + l.ageDale + ' / ' + pname('sue') + ' ' + l.ageSue : 'beyond 100'; }
+      if (isH) { var l = runScen(s).lasts.household; return l ? 'runs out when ' + pname('dale') + ' ' + l.ageDale + ' · ' + pname('sue') + ' ' + l.ageSue : 'lasts beyond 100'; }
       var own = runScen(s, false).lasts[V]; return (own ? 'age ' + own.age : 'beyond 100') + ' on own';
     }
     // scenario list
-    h += '<section class="card"><div class="row"><h2>Scenarios</h2><span class="sub">Tick two to compare · click a name to edit it</span><button class="btn primary ml" data-act="newScen">+ New scenario</button></div>' +
+    h += '<section class="card"><div class="row"><h2>Scenarios</h2><span class="sub">Ticks choose the two scenarios in the comparison table below · click a name to edit it</span><button class="btn primary ml" data-act="newScen">+ New scenario</button></div>' +
       p.scenarios.map(function (s) {
         var on = p.compare.indexOf(s.id) >= 0;
         return '<div class="row" style="border-top:1px solid var(--line2);padding-top:8px"><input type="checkbox" data-act="cmp" data-id="' + s.id + '" ' + (on ? 'checked' : '') + ' aria-label="Compare ' + esc(s.name) + '" style="width:18px;height:18px;accent-color:var(--dale)">' +
           '<button class="btn link" data-act="pickScen" data-id="' + s.id + '" style="' + (s.id === S.scen ? 'text-decoration:underline' : '') + '">' + esc(s.name) + '</button><span class="sub">' + esc(s.id === 'base' ? baseNote() : (s.note || '')) + '</span>' +
-          '<span class="ml"><b>' + (isH ? 'Lasts to ' : esc(pname(V)) + ': lasts to ') + esc(lastsFor(s)) + '</b></span>' +
+          '<span class="ml"><b>' + (isH ? '' : esc(pname(V)) + ': lasts to ') + esc(lastsFor(s)) + '</b></span>' +
           '<button class="ibtn" data-act="copyScen" data-id="' + s.id + '" aria-label="Copy scenario" title="Copy">' + ICON.copy + '</button>' +
           (s.id !== 'base' ? delBtn('delScen', s.id, 'Delete scenario') : '<span style="width:34px"></span>') + '</div>';
       }).join('') + '</section>';
@@ -1394,7 +1412,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
           return '<tr><th scope="row" style="font-weight:500">' + lab + ' at ' + esc(pname(who)) + ' ' + ag + '</th>' + res.map(function (r) { var x = rowAt(r, ag); return '<td class="num"><b>' + (x ? kM(val(x)) : '–') + '</b>' + (x && isH ? ' <span class="hint">(' + esc(pname('sue')).charAt(0) + ' ' + x.p.sue.age + ')</span>' : '') + '</td>'; }).join('') + '</tr>';
         }).join('') +
         (isH
-          ? '<tr class="tot"><th scope="row">Money lasts until</th>' + res.map(function (r) { var l = r.lasts.household; return '<td class="num">' + (l ? esc(pname('dale')) + ' ' + l.ageDale + ' / ' + esc(pname('sue')) + ' ' + l.ageSue : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
+          ? '<tr class="tot"><th scope="row">Shared money runs out when you\'re</th>' + res.map(function (r) { var l = r.lasts.household; return '<td class="num">' + (l ? esc(pname('dale')) + ' ' + l.ageDale + ' · ' + esc(pname('sue')) + ' ' + l.ageSue : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
             '<tr><th scope="row" style="font-weight:500">Each on own (separate)</th>' + resSep.map(function (r) { return '<td class="num">' + esc(pname('dale')) + ' ' + (r.lasts.dale ? r.lasts.dale.age : '100+') + ' · ' + esc(pname('sue')) + ' ' + (r.lasts.sue ? r.lasts.sue.age : '100+') + '</td>'; }).join('') + '</tr>'
           : '<tr class="tot"><th scope="row">' + esc(pname(V)) + "'s money lasts (on own)</th>" + resSep.map(function (r) { var l = r.lasts[V]; return '<td class="num">' + (l ? 'Age ' + l.age : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
             '<tr><th scope="row" style="font-weight:500">Household lasts (pooled)</th>' + cmp.map(function (s) { var l = runScen(s, true).lasts.household; return '<td class="num">' + (l ? esc(pname(V)) + ' ' + (V === 'dale' ? l.ageDale : l.ageSue) : 'Beyond 100') + '</td>'; }).join('') + '</tr>' +
@@ -1693,6 +1711,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       Files.download('Retirement forecast – ' + sc.name + (S.view === 'household' ? '' : ' – ' + pname(S.view)) + '.csv', lines.map(function (l) { return l.join(','); }).join('\r\n'), 'text/csv');
     },
     resetA: function () { if (confirm('Reset all assumptions to the built-in defaults? Your accounts, budget and income are not affected.')) { S.plan.assumptions = RP_DEFAULT_PLAN().assumptions; markDirty(); render(); } },
+    useMult: function (id) { var a = S.plan.accounts.filter(function (x) { return x.id === id; })[0]; if (!a) return; a.multiple = +((+a.years) * (+a.perYear || 0.21)).toFixed(2); markDirty(); render(); toast('Multiple set to ' + a.multiple + (a.override ? ' – the benefit amount you entered still takes priority; clear it to use the formula.' : '')); },
     discard: function () { if (confirm('Discard your changes and go back to the saved plan?')) discardChanges(); },
     pwMe: function () { var p = readPw('me'); if (!p) return; pend(S.user === 'recovery' ? 'dale' : S.user, p); render(); toast('Password changed – press Save to apply it.'); },
     pwSue: function () { var p = readPw('sue'); if (!p) return; pend('sue', p); render(); toast(pname('sue') + "'s password set – press Save to apply it."); },
