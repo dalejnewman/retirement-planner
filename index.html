@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.10.1';
+var RP_VERSION = '1.10.2';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
-var RP_RELEASED = '2026-11-19';
+var RP_RELEASED = '2026-11-22';
 var RP_CHANGES = [
+  ['1.10.2', '2026-11-22', ['When Budget is set to use the "In retirement" column, the Dashboard spend card, scenario list and Forecast now show that amount (they used to show the unused combined amount)', 'A scenario with its own combined spend (e.g. "Spend $140k") now uses that amount even when the base plan uses the Budget column']],
   ['1.10.1', '2026-11-22', ['Help search fixed on phones and tablets (letters no longer repeat while typing)', 'Help: "How the numbers are worked out" and how "Spending to cover" is calculated']],
   ['1.10.0', '2026-11-22', ['Business section on Income & Tax: BAS quarters, GST, PAYG instalments, expense categories – all editable', 'Import from Zoho Books (Excel or CSV export of Profit and Loss or BAS report), with a preview', 'Net profit so far against your estimate, and the likely amount at tax time after PAYG']],
   ['1.9.0', '2026-11-20', ['"Spending changes as we age" on Forecast & Scenarios: up to two steps, down or up, per scenario', 'Steps show as milestones and on the Dashboard']],
@@ -280,7 +281,7 @@ var RPE = (function () {
     if (s.daleRetire) P.dale.retireDate = s.daleRetire;
     if (s.sueRetire) P.sue.retireDate = s.sueRetire;
     var spend = {
-      mode: s.spendMode || plan.settings.spendMode || 'target',
+      mode: s.spendMode || (s.spendTarget != null && s.spendTarget !== '' ? 'target' : (plan.settings.spendMode || 'target')),
       target: s.spendTarget != null ? s.spendTarget : plan.settings.spendTarget,
       split: s.splitPct != null ? s.splitPct : plan.settings.splitPct,
       splitMode: s.splitMode || plan.settings.splitMode || 'percent',
@@ -1314,7 +1315,8 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       kpi('Net worth today', kM(nwv), S.view === 'household' ? esc(pname('dale')) + ' ' + kM(nw.dale) + ' · ' + esc(pname('sue')) + ' ' + kM(nw.sue) + dbNote : dbNote.replace(/^ \(|\)$/g, '')) +
       kpi(lastLab, lastMain, lastSub, true) +
       whoList().map(retTile).join('') +
-      kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + (p.settings.spendSteps && p.settings.spendSteps.on && p.settings.spendMode === 'target' ? '<br>Later: ' + stepsText(p.settings.spendSteps, p.settings.spendTarget).replace(/^[^→]*→ /, '') : '') + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr') +
+      (p.settings.spendMode !== 'target' ? kpi('Retirement spend · combined', money(C.bt.dale.ret + C.bt.sue.ret) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(C.bt.dale.ret) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(C.bt.sue.ret) + '</b><br>From the Budget "In retirement" column' + (p.settings.spendSteps && p.settings.spendSteps.on ? ', steps with age' : '') + '<br><button class="btn link" data-act="tab" data-id="budget" style="padding:0;min-height:0">Change on Budget</button>') :
+      kpi('Retirement spend · combined', money(p.settings.spendTarget) + '<span class="k-sub"> /yr</span>', '<b class="dale">' + esc(pname('dale')) + ' ' + kM(p.settings.spendTarget * split / 100) + '</b> · <b class="sue">' + esc(pname('sue')) + ' ' + kM(p.settings.spendTarget * (100 - split) / 100) + '</b> · ' + Math.round(split) + '/' + Math.round(100 - split) + (p.settings.spendSteps && p.settings.spendSteps.on && p.settings.spendMode === 'target' ? '<br>Later: ' + stepsText(p.settings.spendSteps, p.settings.spendTarget).replace(/^[^→]*→ /, '') : '') + '<br>Sustainable to ' + p.assumptions.planToAge + ': ' + kM(C.sust) + '/yr')) +
       (S.view === 'household' ? kpi('Tax ' + fy0.label, kM(taxD + taxS), esc(pname('dale')) + ' ' + kM(taxD) + ' · ' + esc(pname('sue')) + ' ' + kM(taxS)) : kpi(esc(pname(S.view)) + "'s tax " + fy0.label, kM(S.view === 'dale' ? taxD : taxS), 'Effective rate ' + pct(fy0.p[S.view].tax.taxable > 0 ? fy0.p[S.view].taxPaid / fy0.p[S.view].tax.taxable : 0))) +
       '</div>';
     h += '<section class="card" aria-labelledby="chT"><div class="row"><h2 id="chT">Projected balances</h2><div class="legend">' +
@@ -1650,7 +1652,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     ['inflation', 'Inflation', 'pct', 'assumptions.inflation', 0.01, 0.06, 0.0025],
     ['stress', 'Market fall in the year you\'ve both retired', 'pct', null, 0, 0.4, 0.05]
   ];
-  function baseNote() { var P = S.plan.people, st = S.plan.settings.spendSteps; return pname('dale') + ' retires ' + mfmt(P.dale.retireDate) + ' · ' + pname('sue') + ' ' + mfmt(P.sue.retireDate) + ' · ' + kM(S.plan.settings.spendTarget) + '/yr' + (st && st.on ? ', steps with age' : ''); }
+  function baseNote() { var P = S.plan.people, st = S.plan.settings.spendSteps; return pname('dale') + ' retires ' + mfmt(P.dale.retireDate) + ' · ' + pname('sue') + ' ' + mfmt(P.sue.retireDate) + ' · ' + (S.plan.settings.spendMode !== 'target' ? kM(C.bt.dale.ret + C.bt.sue.ret) + '/yr from Budget column' : kM(S.plan.settings.spendTarget) + '/yr') + (st && st.on ? ', steps with age' : ''); }
   function scenById(id) { return S.plan.scenarios.filter(function (s) { return s.id === id; })[0]; }
   function stepsOf(sc) { return (sc && sc.id !== 'base' && sc.steps) || S.plan.settings.spendSteps || { on: false, a1: 75, p1: -0.2, a2: 85, p2: 0 }; }
   function setSteps(sc, st) { if (sc.id === 'base') S.plan.settings.spendSteps = st; else sc.steps = st; }
@@ -1695,10 +1697,15 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         var v = scenValue(sc, f), id = 'sf_' + f[0];
         var lab = f[1].replace('{P1}', pname('dale')).replace('{P2}', pname('sue'));
         if (f[0] === 'splitPct' && S.view === 'sue') { v = 100 - v; lab = pname('sue') + '\'s share of spending %'; }
+        if ((f[0] === 'spendTarget' || f[0] === 'splitPct') && S.plan.settings.spendMode !== 'target' && sc.id === 'base') {
+          if (f[0] === 'splitPct') return '';
+          return '<div class="slider"><div class="top2"><span>Retirement spend (today\'s $)</span><span class="dale">' + money(C.bt.dale.ret + C.bt.sue.ret) + '</span></div><div class="hint">From the Budget "In retirement" column (' + esc(pname('dale')) + ' ' + kM(C.bt.dale.ret) + ' · ' + esc(pname('sue')) + ' ' + kM(C.bt.sue.ret) + '). ' + 'To use a combined amount instead, change "In retirement, base spending on" on Budget, or test one in a copied scenario.</div><button class="btn link" data-act="tab" data-id="budget" style="padding:0;min-height:0;align-self:flex-start">Go to Budget</button></div>';
+        }
         if (f[2] === 'date') return '<div class="field"><label for="' + id + '">' + esc(lab) + '</label><input id="' + id + '" class="in" type="date" data-sf="' + f[0] + '" value="' + esc(v || '') + '"></div>';
         if (f[0] === 'cashRate' && sc.id === 'base') return '<div class="slider"><div class="top2"><span>Cash rate</span><span class="dale">from each account</span></div><div class="hint">Set on Savings & Super (e.g. 5.25% goal saver). A copied scenario can test a different rate.</div></div>';
         if (f[0] === 'cashRate' && (sc.cashRate == null || sc.cashRate === '')) { var cv = 0, cw = 0; S.plan.accounts.forEach(function (a) { if (a.type === 'cash' && (+a.balance || 0) > 0 && (a.owner !== 'joint' || a.include)) { cv += +a.balance; cw += (+a.balance) * (a.rate != null && a.rate !== '' ? +a.rate : S.plan.assumptions.cashRate); } }); if (cv) v = cw / cv; }
-        var disp = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%';
+        var budgetCol = f[0] === 'spendTarget' && S.plan.settings.spendMode !== 'target' && (sc.spendTarget == null || sc.spendTarget === '');
+        var disp = budgetCol ? 'Budget column ' + kM(C.bt.dale.ret + C.bt.sue.ret) : f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%';
         return '<div class="slider"><label class="top2" for="' + id + '"><span>' + esc(lab) + '</span><span class="dale">' + disp + '</span></label><input id="' + id + '" type="range" min="' + f[4] + '" max="' + f[5] + '" step="' + f[6] + '" value="' + v + '" data-sf="' + f[0] + '"></div>';
       }).join('') +
       (function () {
