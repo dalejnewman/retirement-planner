@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.10.0';
+var RP_VERSION = '1.10.1';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.10.1', '2026-11-22', ['Help search fixed on phones and tablets (letters no longer repeat while typing)', 'Help: "How the numbers are worked out" and how "Spending to cover" is calculated']],
   ['1.10.0', '2026-11-22', ['Business section on Income & Tax: BAS quarters, GST, PAYG instalments, expense categories – all editable', 'Import from Zoho Books (Excel or CSV export of Profit and Loss or BAS report), with a preview', 'Net profit so far against your estimate, and the likely amount at tax time after PAYG']],
   ['1.9.0', '2026-11-20', ['"Spending changes as we age" on Forecast & Scenarios: up to two steps, down or up, per scenario', 'Steps show as milestones and on the Dashboard']],
   ['1.8.2', '2026-11-20', ['Clearer "money runs out" wording on the Dashboard, split table and Forecast', 'Shared splits show your own share in your view ("% Sue" in Sue\'s view)', 'Defined benefit: estimate the multiple from years of service; Notes column labelled', 'Scenario ticks explained']],
@@ -1024,8 +1025,18 @@ var RP_HELP = [
 <li><b>Shared money runs out when you're …</b> (Pooled) – the ages you'll <i>both</i> be in the year the shared money runs out. The line underneath shows how long each person's own money lasts on its own. With <b>Separate</b> selected it shows each person's own money instead.</li>
 <li><b>Retirement spend</b> – the combined yearly amount, each person's share, and the most you could spend and still last to the "plan to" age (95).</li>
 <li><b>Projected balances</b> – hover over a bar to see each person's balance that year. Dashed lines mark retirements.</li>
-<li><b>Retirement income – combined and split</b> – for the first full year you're both retired: what each of you spends and where it comes from (super, Age Pension, cash). Change the split here.</li>
+<li><b>Retirement income – combined and split</b> – the first full year you're both retired, in <i>future</i> dollars. <b>Spending to cover</b> = your combined yearly retirement amount (Budget tab, e.g. $130,000 in today's dollars) × each person's split (e.g. 50/50) × inflation up to that year (3% a year: four years ≈ ×1.13, so $65,000 becomes about $73,000 each). The rows below show where it comes from – super pension, Age Pension, other income and cash – and the tax each of you pays. Change the split here: a percentage, or <i>By each person's budget</i>.</li>
 <li><b>Milestones</b> and the <b>Separate vs pooled</b> comparison sit at the bottom.</li>
+</ul>`],
+ ['howcalc', 'How the numbers are worked out', `
+<ul>
+<li><b>Spending before retirement</b> – each person's Budget lines ("Now" amounts), shared items split by the %.</li>
+<li><b>Spending in retirement</b> – either the <i>combined yearly amount</i> split between you, or each person's <i>In retirement</i> column (Budget tab › "In retirement, base spending on"). Optional steps with age (Forecast › Spending changes as we age).</li>
+<li><b>Inflation</b> – today's dollars are grown by the Assumptions rate (3%) each year; charts and year-by-year tables are in future dollars.</li>
+<li><b>Income</b> – work income until each retirement date; interest at each cash account's own rate; super pension drawdowns (at least the legal minimum); Age Pension from 67 if the assets and income tests allow.</li>
+<li><b>Tax</b> – each person separately at resident rates plus Medicare, less offsets and franking credits. Super pensions are tax-free after 60; deductible super contributions reduce taxable income and are taxed 15% in the fund.</li>
+<li><b>Running short</b> – cash is used first, then super (once accessible), then shares. With <b>Pooled</b>, one partner tops up the other; the money "runs out" when the shared total can't cover the year's spending.</li>
+<li><b>Not included</b> – see "What the planner doesn't do" below.</li>
 </ul>`],
  ['budget', 'Budget – adding, changing and deleting expenses', `
 <ul>
@@ -1265,6 +1276,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     app.innerHTML = h;
     window.scrollTo(0, y);
     afterRender();
+    if (S.tab === 'help' && S.helpQ) filterHelp();
   }
 
   function whoList() { return S.view === 'household' ? ['dale', 'sue'] : [S.view]; }
@@ -1831,11 +1843,21 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   /* ---------- Help ---------- */
   function helpText(t) { return String(t).replace(/\{P1\}/g, esc(pname('dale'))).replace(/\{P2\}/g, esc(pname('sue'))).replace(/\{URL\}/g, RP_WEB_URL ? '<a href="' + RP_WEB_URL + '">' + RP_WEB_URL + '</a>' : 'the planner\'s web address'); }
   function helpBody(open) {
-    var q = (S.helpQ || '').toLowerCase();
-    var secs = RP_HELP.filter(function (s) { return !q || (s[1] + ' ' + helpText(s[2])).toLowerCase().indexOf(q) >= 0; });
+    var q = (S.helpQ || '').toLowerCase().trim();
+    var secs = RP_HELP;
     return '<div class="row"><label for="helpQ" class="lab">Search help</label><input class="in" id="helpQ" style="max-width:340px" placeholder="e.g. password, defined benefit, save" value="' + esc(S.helpQ || '') + '"><button class="btn" data-act="helpAll" data-id="1">Expand all</button><button class="btn" data-act="helpAll" data-id="0">Collapse all</button><button class="btn" data-act="print">Print</button></div>' +
-      '<nav class="helpnav" aria-label="Help topics">' + secs.map(function (s) { return '<a href="#h_' + s[0] + '" data-act="helpGo" data-id="' + s[0] + '">' + esc(s[1]) + '</a>'; }).join('') + '</nav>' +
-      (secs.length ? secs.map(function (s) { return '<details class="card help" id="h_' + s[0] + '"' + (open || q || S.helpOpen === s[0] ? ' open' : '') + '><summary><h2>' + esc(s[1]) + '</h2></summary><div class="hbody">' + helpText(s[2]) + '</div></details>'; }).join('') : '<div class="sub">No topics match "' + esc(S.helpQ) + '".</div>');
+      '<nav class="helpnav" aria-label="Help topics">' + secs.map(function (s) { return '<a href="#h_' + s[0] + '" data-act="helpGo" data-id="' + s[0] + '" data-hnav="' + s[0] + '">' + esc(s[1]) + '</a>'; }).join('') + '</nav>' +
+      (secs.length ? secs.map(function (s) { return '<details class="card help" id="h_' + s[0] + '"' + (open || S.helpOpen === s[0] ? ' open' : '') + '><summary><h2>' + esc(s[1]) + '</h2></summary><div class="hbody">' + helpText(s[2]) + '</div></details>'; }).join('') : '') + '<div class="sub" id="helpNone" style="display:none">No topics match your search.</div>';
+  }
+  // Show/hide topics without redrawing the search box (redrawing breaks phone/tablet keyboards that build words as you type)
+  function filterHelp() {
+    var q = (S.helpQ || '').toLowerCase().trim(), any = false;
+    document.querySelectorAll('details.help').forEach(function (d) {
+      var hit = !q || d.textContent.toLowerCase().indexOf(q) >= 0;
+      d.style.display = hit ? '' : 'none'; if (q && hit) d.open = true; if (hit) any = true;
+      var nav = document.querySelector('[data-hnav="' + d.id.slice(2) + '"]'); if (nav) nav.style.display = hit ? '' : 'none';
+    });
+    var none = document.getElementById('helpNone'); if (none) none.style.display = any ? 'none' : '';
   }
   function vHelp() {
     return '<div class="head"><h1>Help guide</h1><span class="sub">How to use the Retirement Planner – for ' + esc(pname('dale')) + ' and ' + esc(pname('sue')) + '</span></div>' + helpBody(S.helpExpand);
@@ -1845,6 +1867,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   function renderLock() {
     if (S.lockHelp) {
       app.innerHTML = '<div class="lock" style="align-items:flex-start"><div style="width:100%;max-width:980px;display:flex;flex-direction:column;gap:14px"><div class="row" style="color:#fff"><h1 style="color:#fff">Help guide</h1><button class="btn ml" data-act="lockHelp" data-id="0" style="color:var(--ink)">Back to login</button></div>' + helpBody(true) + '</div></div>';
+      if (S.helpQ) filterHelp();
       return;
     }
     var h = '<div class="lock"><div class="lockbox"><div class="t"><div>Retirement Planner</div><div>Runs entirely on this device · nothing is sent online</div></div><div class="panel">';
@@ -2139,7 +2162,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     if (t.dataset.sf && t.type === 'range') { var lab = t.parentNode.querySelector('.top2 span:last-child'); var f = SF.filter(function (x) { return x[0] === t.dataset.sf; })[0]; var v = +t.value; lab.textContent = f[2] === 'pct' ? pct(v, f[0] === 'stress' ? 0 : 2) : f[2] === 'money' ? money(v) : Math.round(v) + '%'; }
   });
   app.addEventListener('input', function (e) {
-    if (e.target.id === 'helpQ') { S.helpQ = e.target.value; var pos = e.target.selectionStart; if (S.plan) render(); else renderLock(); var q = document.getElementById('helpQ'); if (q) { q.focus(); q.setSelectionRange(pos, pos); } }
+    if (e.target.id === 'helpQ') { S.helpQ = e.target.value; filterHelp(); }
   });
   app.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'pw') unlockNow(); });
   // chart tooltip
