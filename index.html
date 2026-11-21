@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.9.0';
+var RP_VERSION = '1.10.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-19';
 var RP_CHANGES = [
+  ['1.10.0', '2026-11-22', ['Business section on Income & Tax: BAS quarters, GST, PAYG instalments, expense categories – all editable', 'Import from Zoho Books (Excel or CSV export of Profit and Loss or BAS report), with a preview', 'Net profit so far against your estimate, and the likely amount at tax time after PAYG']],
   ['1.9.0', '2026-11-20', ['"Spending changes as we age" on Forecast & Scenarios: up to two steps, down or up, per scenario', 'Steps show as milestones and on the Dashboard']],
   ['1.8.2', '2026-11-20', ['Clearer "money runs out" wording on the Dashboard, split table and Forecast', 'Shared splits show your own share in your view ("% Sue" in Sue\'s view)', 'Defined benefit: estimate the multiple from years of service; Notes column labelled', 'Scenario ticks explained']],
   ['1.8.1', '2026-11-19', ['Tablets showing the desktop version of sites are now recognised as tablets (view only)', '"Editing on this device" setting on Users & passwords to override the automatic choice']],
@@ -604,6 +605,7 @@ var RP_DEFAULT_PLAN = function () {
       updated: { economic: '2026-11-19', tax: '2026-11-19', super: '2026-11-19', agePension: '2026-11-19' },
       reviewDue: '2027-07-01'
     },
+    business: { owner: 'dale', basis: 'cash', period: 'quarterly', paygDefault: 0, years: {} },
     settings: { spendMode: 'target', spendTarget: 80000, splitPct: 50, splitMode: 'percent', pooled: true },
     scenarios: [{ id: 'base', name: 'Base plan', note: '' }],
     compare: ['base'],
@@ -811,6 +813,177 @@ var Files = (function () {
     download: download, canPick: canPick, name: function () { return fileName; }, hasHandle: function () { return !!handle; } };
 })();
 
+/* Reads Zoho Books exports (Excel .xlsx or CSV) entirely in the browser – nothing is uploaded anywhere.
+   readFile(file) -> rows (array of arrays); interpret(rows) -> { kind, period, ... } for the preview. */
+var RPImport = (function () {
+  'use strict';
+
+  /* ---------- tiny .xlsx reader (an .xlsx is a zip of XML files) ---------- */
+  function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  async function inflateRaw(data) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot open Excel files – export CSV from Zoho instead, or use Edge/Chrome.');
+    var ds = new DecompressionStream('deflate-raw');
+    var out = new Response(new Blob([data]).stream().pipeThrough(ds));
+    return new Uint8Array(await out.arrayBuffer());
+  }
+  async function unzip(buf) {
+    var b = new Uint8Array(buf), eocd = -1;
+    for (var i = b.length - 22; i >= Math.max(0, b.length - 70000); i--) if (u32(b, i) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('This does not look like an Excel (.xlsx) file.');
+    var n = u16(b, eocd + 10), off = u32(b, eocd + 16), files = {};
+    for (var k = 0; k < n; k++) {
+      if (u32(b, off) !== 0x02014b50) break;
+      var method = u16(b, off + 10), csize = u32(b, off + 20), nlen = u16(b, off + 28), elen = u16(b, off + 30), clen = u16(b, off + 32), lho = u32(b, off + 42);
+      var name = new TextDecoder().decode(b.subarray(off + 46, off + 46 + nlen));
+      var dataStart = lho + 30 + u16(b, lho + 26) + u16(b, lho + 28);
+      files[name] = { method: method, data: b.subarray(dataStart, dataStart + csize) };
+      off += 46 + nlen + elen + clen;
+    }
+    return {
+      names: Object.keys(files),
+      text: async function (nm) { var f = files[nm]; if (!f) return null; var raw = f.method === 0 ? f.data : await inflateRaw(f.data); return new TextDecoder().decode(raw); }
+    };
+  }
+  function colIndex(ref) { var m = /^([A-Z]+)/.exec(ref || ''), n = 0; if (!m) return -1; for (var i = 0; i < m[1].length; i++) n = n * 26 + m[1].charCodeAt(i) - 64; return n - 1; }
+  async function readXlsx(buf) {
+    var z = await unzip(buf), parser = new DOMParser(), shared = [];
+    var ss = await z.text('xl/sharedStrings.xml');
+    if (ss) {
+      var sd = parser.parseFromString(ss, 'application/xml');
+      Array.prototype.forEach.call(sd.getElementsByTagName('si'), function (si) {
+        shared.push(Array.prototype.map.call(si.getElementsByTagName('t'), function (t) { return t.textContent; }).join(''));
+      });
+    }
+    var sheet = z.names.filter(function (x) { return /^xl\/worksheets\/sheet\d*\.xml$/.test(x); }).sort()[0];
+    if (!sheet) throw new Error('No worksheet found in this Excel file.');
+    var doc = parser.parseFromString(await z.text(sheet), 'application/xml'), rows = [];
+    Array.prototype.forEach.call(doc.getElementsByTagName('row'), function (r) {
+      var out = [];
+      Array.prototype.forEach.call(r.getElementsByTagName('c'), function (c) {
+        var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], val;
+        if (t === 's') val = shared[+(v ? v.textContent : 0)];
+        else if (t === 'inlineStr') val = Array.prototype.map.call(c.getElementsByTagName('t'), function (x) { return x.textContent; }).join('');
+        else if (t === 'str' || t === 'b') val = v ? v.textContent : '';
+        else val = v ? (isNaN(+v.textContent) ? v.textContent : +v.textContent) : '';
+        var ci = colIndex(c.getAttribute('r')); if (ci < 0) ci = out.length;
+        out[ci] = val;
+      });
+      for (var i = 0; i < out.length; i++) if (out[i] === undefined) out[i] = '';
+      rows.push(out);
+    });
+    return rows;
+  }
+  function readCsv(text) {
+    var rows = [], row = [], cell = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += ch;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+  async function readFile(file) {
+    var buf = await file.arrayBuffer(), b = new Uint8Array(buf);
+    if (b[0] === 0x50 && b[1] === 0x4b) return readXlsx(buf);              // zip -> xlsx
+    if (b[0] === 0x25 && b[1] === 0x50) throw new Error('That is a PDF. In Zoho Books choose Export › Excel (XLSX) instead – PDFs can\'t be read.');
+    return readCsv(new TextDecoder().decode(b));
+  }
+
+  /* ---------- understanding the report ---------- */
+  function num(v) {
+    if (typeof v === 'number') return v;
+    var s = String(v == null ? '' : v).trim(); if (!s) return null;
+    var neg = /^\(.*\)$/.test(s) || /^-/.test(s);
+    s = s.replace(/[()$,\sA-Za-z]/g, '').replace(/^-/, '');
+    if (!/^\d*\.?\d+$/.test(s)) return null;
+    return neg ? -parseFloat(s) : parseFloat(s);
+  }
+  function label(r) { for (var i = 0; i < r.length; i++) { var c = r[i]; if (typeof c === 'string' && c.trim() && num(c) === null) return c.trim(); } return ''; }
+  function amount(r) { for (var i = r.length - 1; i >= 0; i--) { var n = num(r[i]); if (n !== null && !(typeof r[i] === 'string' && /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(r[i]))) return n; } return null; }
+  var MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  function findDates(text) {
+    var out = [], m, re1 = /(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/g, re2 = /(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})/gi, re3 = /(\d{4})-(\d{2})-(\d{2})/g;
+    while ((m = re1.exec(text))) out.push(new Date(+m[3], +m[2] - 1, +m[1]));
+    while ((m = re2.exec(text))) out.push(new Date(+m[3], MON[m[2].toLowerCase().slice(0, 3)], +m[1]));
+    while ((m = re3.exec(text))) out.push(new Date(+m[1], +m[2] - 1, +m[3]));
+    return out.filter(function (d) { return !isNaN(d) && d.getFullYear() > 2000; }).sort(function (a, b) { return a - b; });
+  }
+  // Excel stores dates as serial numbers – look for them in the top rows too
+  function serialDates(rows) {
+    var out = [];
+    rows.slice(0, 8).forEach(function (r) { r.forEach(function (c) { if (typeof c === 'number' && c > 40000 && c < 60000 && Math.floor(c) === c) out.push(new Date(Math.round((c - 25569) * 86400000))); }); });
+    return out;
+  }
+  function period(rows) {
+    var head = rows.slice(0, 8).map(function (r) { return r.join(' '); }).join(' ');
+    var d = findDates(head);
+    if (d.length < 2) d = d.concat(serialDates(rows.slice(0, 4)));   // Excel date numbers only near the top, so amounts aren't mistaken for dates
+    d.sort(function (a, b) { return a - b; });
+    if (d.length < 2) return null;
+    var from = d[0], to = d[d.length - 1];
+    var fy = from.getMonth() >= 6 ? from.getFullYear() + 1 : from.getFullYear();
+    var months = (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth() + 1;
+    var q = null;
+    if (months <= 3) { var mm = from.getMonth(); q = mm >= 6 && mm <= 8 ? 0 : mm >= 9 ? 1 : mm <= 2 ? 2 : 3; }
+    return { from: from, to: to, fy: fy, quarter: q, months: months };
+  }
+
+  function interpret(rows) {
+    rows = rows.filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+    var all = rows.map(function (r) { return r.join(' '); }).join('\n').toLowerCase();
+    var per = period(rows);
+    // BAS / GST summary
+    var isBas = /\bg1\b/.test(all) && (/\b1a\b/.test(all) || /gst on sales/.test(all));
+    if (isBas || /gst on sales|gst collected/.test(all) && /gst on purchases|gst paid|gst credits/.test(all)) {
+      var v = {};
+      rows.forEach(function (r) {
+        var l = label(r).toLowerCase(), a = amount(r); if (a === null || !l) return;
+        var t = (r.join(' ') + ' ').toLowerCase();
+        if (/\bg1\b|total sales/.test(t) && v.g1 == null) v.g1 = a;
+        else if (/\b1a\b|gst on sales|gst collected/.test(t) && v.gstOn == null) v.gstOn = a;
+        else if (/\b1b\b|gst on purchases|gst paid|gst credits/.test(t) && v.gstCr == null) v.gstCr = a;
+        else if (/\bg11\b|non-capital purchases/.test(t) && v.g11 == null) v.g11 = a;
+        else if (/\bg10\b|capital purchases/.test(t) && v.g10 == null) v.g10 = a;
+        else if (/\b5a\b|\bt7\b|payg.*instal/.test(t) && v.payg == null) v.payg = a;
+      });
+      var res = { kind: 'bas', period: per, gstOn: v.gstOn, gstCr: v.gstCr, payg: v.payg };
+      if (v.g1 != null) res.sales = v.g1 - (v.gstOn || 0);                 // G1 includes GST
+      if (v.g10 != null || v.g11 != null) res.expenses = (v.g10 || 0) + (v.g11 || 0) - (v.gstCr || 0);
+      res.found = Object.keys(v).length;
+      return res;
+    }
+    // Profit and Loss
+    if (/profit/.test(all) && (/loss/.test(all) || /income/.test(all))) {
+      var sec = null, income = [], expenses = [];
+      rows.forEach(function (r) {
+        var l = label(r), a = amount(r), lo = l.toLowerCase();
+        if (!l) return;
+        if (a === null) {
+          if (/non[- ]?operating|other income/.test(lo)) sec = 'other';          // interest etc. – not business sales
+          else if (/cost of (goods|sales)|expense/.test(lo)) sec = 'exp';
+          else if (/income|revenue|^sales$|^trading/.test(lo)) sec = 'inc';
+          return;
+        }
+        if (/^total|gross profit|net profit|net loss|operating profit|net income|^profit/.test(lo)) return;
+        if (sec === 'inc') income.push({ name: l, amount: a });
+        else if (sec === 'exp') expenses.push({ name: l, amount: a });
+      });
+      if (income.length || expenses.length) {
+        var it = income.reduce(function (s, x) { return s + x.amount; }, 0), et = expenses.reduce(function (s, x) { return s + x.amount; }, 0);
+        return { kind: 'pl', period: per, sales: it, expenses: et, income: income, categories: expenses, found: income.length + expenses.length };
+      }
+    }
+    return { kind: 'unknown', period: per, sample: rows.slice(0, 12) };
+  }
+  return { readFile: readFile, interpret: interpret, _readCsv: readCsv, _num: num };
+})();
+if (typeof module !== 'undefined') module.exports = RPImport;
+
 /* Help guide content (plain HTML, no figures) */
 var RP_HELP = [
  ['whatsnew', "What's new & versions", (function () {
@@ -874,6 +1047,8 @@ var RP_HELP = [
   <li><b>Tax-free</b> – e.g. a gift or inheritance.</li></ul></li>
 <li>Interest, dividends and franking come from <b>Savings &amp; Super</b> automatically – don't add them here.</li>
 <li><b>Tax by bracket</b> shows how the tax is worked out, the effective rate and the rate on your next dollar.</li>
+<li><b>Business (sole trader):</b> one row per BAS quarter – sales and expenses (ex GST), GST collected (1A), GST credits (1B), PAYG instalment and a Paid tick. Type figures in, or use <b>Import from Zoho Books…</b>. Blank GST boxes are estimated at 10% until you enter the real figure. The cards underneath compare your net profit so far with your own yearly estimate (which still drives the forecast), show GST owing, and estimate what you'll pay or get back at tax time after your PAYG instalments.</li>
+<li><b>Importing from Zoho Books:</b> in Zoho Books open <i>Reports › Profit and Loss</i> (or the <i>BAS / GST</i> report), choose one quarter's dates, then <i>Export › Excel (XLSX)</i> – not PDF. In the planner click <b>Import from Zoho Books…</b> and pick the file. A preview shows what was found and which quarter it goes into; nothing changes until you click <b>Apply</b>. A year-to-date Profit and Loss fills the expense categories. The file is read on your computer only – nothing is sent anywhere.</li>
 <li><b>Deductible super contributions</b>: enter a yearly amount to see the tax saving. Check caps with your accountant.</li>
 </ul>`],
  ['savings', 'Savings & Super', `
@@ -1306,11 +1481,106 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       h += '</section>';
     });
     h += '</div>';
+    h += vBusiness(row);
     h += '<section class="card"><h2>Things to check with your accountant</h2><div class="grid">' +
       '<div class="tip"><b>Whose name holds the cash.</b> Interest is taxed at the holder\'s marginal rate – the lower earner usually pays less.</div>' +
       '<div class="tip"><b>Super contributions.</b> Deductible contributions are taxed at 15%. Unused caps can be carried forward when the balance is under $500k.</div>' +
       '<div class="tip"><b>Pension phase.</b> Super pensions are tax-free from 60, so drawing from super can keep taxable income low.</div></div>' +
       '<div class="sub">Simplified: no capital gains on selling shares, SAPTO or Division 293. General information, not tax advice.</div></section>';
+    return h;
+  }
+
+  /* ---------- Business (sole trader): BAS quarters, GST, PAYG, expense categories ---------- */
+  var QN = ['Jul–Sep', 'Oct–Dec', 'Jan–Mar', 'Apr–Jun'];
+  function bizYear(fy) {
+    var B = S.plan.business; if (!B.years[fy]) B.years[fy] = { q: [0, 1, 2, 3].map(function () { return { sales: '', gstOn: '', exp: '', gstCr: '', payg: '', paid: false }; }), cats: [] };
+    return B.years[fy];
+  }
+  function nz(v) { return v === '' || v == null ? null : +v; }
+  function bizTotals(Y) {
+    var B = S.plan.business, t = { sales: 0, exp: 0, gstOn: 0, gstCr: 0, payg: 0, paygYear: 0, n: 0, estGst: false };
+    Y.q.forEach(function (q) {
+      var has = nz(q.sales) != null || nz(q.exp) != null || nz(q.gstOn) != null || nz(q.gstCr) != null;
+      var go = nz(q.gstOn) != null ? +q.gstOn : (nz(q.sales) || 0) * 0.1, gc = nz(q.gstCr) != null ? +q.gstCr : (nz(q.exp) || 0) * 0.1;
+      if (nz(q.gstOn) == null && nz(q.sales)) t.estGst = true; if (nz(q.gstCr) == null && nz(q.exp)) t.estGst = true;
+      var pg = nz(q.payg) != null ? +q.payg : (+B.paygDefault || 0);
+      t.paygYear += pg;
+      if (!has) return;
+      t.n++; t.sales += nz(q.sales) || 0; t.exp += nz(q.exp) || 0; t.gstOn += go; t.gstCr += gc; t.payg += pg;
+    });
+    return t;
+  }
+  function vBusiness(row) {
+    var p = S.plan, B = p.business; if (!B || !B.owner || B.owner === 'none') return '';
+    var w = B.owner; if (S.view !== 'household' && S.view !== w) return '';
+    var fy = row.fy, Y = bizYear(fy), T = bizTotals(Y), R = row.p[w];
+    var base = 'business.years.' + fy + '.';
+    var h = '<section class="card p-' + w + '"><div class="row"><h2>' + esc(pname(w)) + '\'s business – ' + row.label + '</h2><span class="sub">Sole trader · BAS ' + esc(B.period) + ' · GST ' + esc(B.basis) + ' basis</span>' +
+      '<div class="ml row"><button class="btn" data-act="bizImport">Import from Zoho Books…</button></div></div>';
+    if (S.bizPreview) h += bizPreviewHtml(fy);
+    h += '<div class="row" style="gap:16px">' +
+      '<label class="row" style="gap:6px;font-size:14px">GST basis ' + sel('business.basis', [['cash', 'Cash'], ['accrual', 'Accrual']], 'w120', { label: 'GST basis' }) + '</label>' +
+      '<label class="row" style="gap:6px;font-size:14px">Usual PAYG instalment ' + inp('business.paygDefault', 'money', 'w110', { label: 'Usual PAYG instalment per quarter' }) + '<span class="hint">per quarter</span></label>' +
+      '<label class="row" style="gap:6px;font-size:14px">Business owner ' + sel('business.owner', [['dale', pname('dale')], ['sue', pname('sue')], ['none', 'No business']], 'w120', { label: 'Business owner' }) + '</label></div>';
+    // quarters table
+    h += '<div class="tw" style="border:0"><table><thead><tr><th>BAS quarter</th><th class="num">Sales<br><span class="hint">ex GST</span></th><th class="num">GST collected<br><span class="hint">1A</span></th><th class="num">Expenses<br><span class="hint">ex GST</span></th><th class="num">GST credits<br><span class="hint">1B</span></th><th class="num">Net GST</th><th class="num">PAYG instalment</th><th class="num">BAS total</th><th>Paid</th></tr></thead><tbody>' +
+      Y.q.map(function (q, i) {
+        var b = base + 'q.' + i + '.';
+        var go = nz(q.gstOn) != null ? +q.gstOn : (nz(q.sales) || 0) * 0.1, gc = nz(q.gstCr) != null ? +q.gstCr : (nz(q.exp) || 0) * 0.1;
+        var has = nz(q.sales) != null || nz(q.exp) != null || nz(q.gstOn) != null || nz(q.gstCr) != null;
+        var pg = nz(q.payg) != null ? +q.payg : (+B.paygDefault || 0);
+        return '<tr' + (q.paid ? ' style="background:#F1F8F4"' : '') + '><td class="nw"><b>Q' + (i + 1) + '</b> ' + QN[i] + '</td>' +
+          '<td class="num">' + inp(b + 'sales', 'optmoney', 'w110', { label: 'Sales Q' + (i + 1) }) + '</td>' +
+          '<td class="num">' + inp(b + 'gstOn', 'optmoney', 'w110', { label: 'GST collected Q' + (i + 1), ph: nz(q.sales) ? 'est ' + Math.round(q.sales * 0.1).toLocaleString('en-AU') : '' }) + '</td>' +
+          '<td class="num">' + inp(b + 'exp', 'optmoney', 'w110', { label: 'Expenses Q' + (i + 1) }) + '</td>' +
+          '<td class="num">' + inp(b + 'gstCr', 'optmoney', 'w110', { label: 'GST credits Q' + (i + 1), ph: nz(q.exp) ? 'est ' + Math.round(q.exp * 0.1).toLocaleString('en-AU') : '' }) + '</td>' +
+          '<td class="num">' + (has ? money(go - gc) : '–') + '</td>' +
+          '<td class="num">' + inp(b + 'payg', 'optmoney', 'w110', { label: 'PAYG instalment Q' + (i + 1), ph: (+B.paygDefault || 0).toLocaleString('en-AU') }) + '</td>' +
+          '<td class="num"><b>' + (has || nz(q.payg) != null ? money(go - gc + pg) : '–') + '</b></td>' +
+          '<td><input type="checkbox" data-bind="' + b + 'paid" data-type="bool"' + (q.paid ? ' checked' : '') + ' aria-label="BAS Q' + (i + 1) + ' paid" style="width:18px;height:18px"></td></tr>';
+      }).join('') +
+      '<tr class="tot"><td>Year to date' + (T.n ? ' (' + T.n + ' qtr' + (T.n > 1 ? 's' : '') + ')' : '') + '</td><td class="num">' + money(T.sales) + '</td><td class="num">' + money(T.gstOn) + '</td><td class="num">' + money(T.exp) + '</td><td class="num">' + money(T.gstCr) + '</td><td class="num">' + money(T.gstOn - T.gstCr) + '</td><td class="num">' + money(T.payg) + '</td><td class="num">' + money(T.gstOn - T.gstCr + T.payg) + '</td><td></td></tr>' +
+      '</tbody></table></div>' + (T.estGst ? '<div class="hint">Blank GST boxes are estimated at 10% (shown as "est"). Type the figure from your BAS to replace it – GST-free items and sales make the real figure different.</div>' : '');
+    // year to date vs estimate, and tax at lodgement
+    var est = R.income.work, profit = T.sales - T.exp, pro = est * T.n / 4, diff = profit - pro;
+    var tax = R.taxPaid, toPay = tax - T.paygYear;
+    h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">' +
+      '<div class="card" style="background:var(--bg);border:0;gap:4px"><div class="k-lab">Net profit so far</div><div class="k-val" style="font-size:24px">' + money(profit) + '</div><div class="k-sub">' + (T.n ? 'Your estimate for ' + T.n + ' quarter' + (T.n > 1 ? 's' : '') + ': ' + money(pro) + ' · ' + (diff >= 0 ? '<b style="color:var(--good)">' + money(diff) + ' ahead</b>' : '<b style="color:var(--bad)">' + money(-diff) + ' behind</b>') : 'Enter or import a quarter to compare with your estimate') + '</div></div>' +
+      '<div class="card" style="background:var(--bg);border:0;gap:4px"><div class="k-lab">Your estimate for the year</div><div class="k-val" style="font-size:24px">' + money(est) + '</div><div class="k-sub">Net consulting income used in the forecast and tax. Change it under Income streams above.</div></div>' +
+      '<div class="card" style="background:var(--bg);border:0;gap:4px"><div class="k-lab">GST to pay for the year so far</div><div class="k-val" style="font-size:24px">' + money(T.gstOn - T.gstCr) + '</div><div class="k-sub">Not income – collected for the ATO. Kept out of the forecast.</div></div>' +
+      '<div class="card" style="background:var(--bg);border:0;gap:4px"><div class="k-lab">Likely at tax time</div><div class="k-val" style="font-size:24px;color:' + (toPay > 0 ? 'var(--bad)' : 'var(--good)') + '">' + (toPay > 0 ? money(toPay) + ' to pay' : money(-toPay) + ' refund') + '</div><div class="k-sub">Estimated tax ' + money(tax) + ' less PAYG instalments ' + money(T.paygYear) + ' for the year' + (toPay > 5000 ? '. Consider asking your accountant about varying your instalments.' : '') + '</div></div></div>';
+    // expense categories
+    var ct = Y.cats.reduce(function (s, c) { return s + (+c.amount || 0); }, 0), cg = Y.cats.reduce(function (s, c) { return s + (+c.gst || 0); }, 0);
+    h += '<div class="row"><h3>Expense categories ' + row.label + '</h3><span class="sub">ex GST · for reference – the forecast uses your estimate</span><button class="btn link ml" data-act="addCat" data-id="' + fy + '">+ Add category</button></div>' +
+      (Y.cats.length ? '<div class="tw" style="border:0"><table><thead><tr><th>Category</th><th class="num">Amount ex GST</th><th class="num">GST</th><th></th></tr></thead><tbody>' +
+        Y.cats.map(function (c, i) { var b = base + 'cats.' + i + '.'; return '<tr><td>' + inp(b + 'name', 'text', '', { label: 'Category' }) + '</td><td class="num">' + inp(b + 'amount', 'money', 'w110', { label: 'Amount' }) + '</td><td class="num">' + inp(b + 'gst', 'optmoney', 'w110', { label: 'GST' }) + '</td><td class="num">' + delBtn('delCat', fy + ':' + i, 'Delete category') + '</td></tr>'; }).join('') +
+        '<tr class="tot"><td>Total</td><td class="num">' + money(ct) + '</td><td class="num">' + money(cg) + '</td><td></td></tr></tbody></table></div>'
+        : '<div class="sub">None yet – import a Profit and Loss report from Zoho Books, or add categories by hand (e.g. phone, software, vehicle, insurance).</div>');
+    h += '</section>';
+    return h;
+  }
+  function bizPreviewHtml(fy) {
+    var P = S.bizPreview, r = P.res;
+    var per = r.period ? r.period.from.toLocaleDateString('en-AU') + ' – ' + r.period.to.toLocaleDateString('en-AU') : 'not found in the file';
+    var h = '<div class="card" style="border:2px solid var(--dale);gap:10px"><div class="row"><h3>Import preview – ' + esc(P.name) + '</h3><button class="btn link ml" data-act="bizCancel">Cancel</button></div>';
+    if (r.kind === 'unknown') {
+      return h + '<div class="note">This file wasn\'t recognised as a Zoho Books <b>Profit and Loss</b> or <b>GST/BAS</b> report. In Zoho Books open Reports › Profit and Loss (or the BAS/GST report), choose the dates, then Export › <b>Excel</b>.</div><div class="hint">First rows found: ' + esc(r.sample.slice(0, 6).map(function (x) { return x.join(' | '); }).join(' / ')) + '</div></div>';
+    }
+    h += '<div>Recognised: <b>' + (r.kind === 'pl' ? 'Profit and Loss' : 'GST / BAS report') + '</b> · period ' + esc(per) + '</div><table><tbody>' +
+      (r.sales != null ? '<tr><td>Sales / income (ex GST)</td><td class="num"><b>' + money(r.sales) + '</b></td></tr>' : '') +
+      (r.expenses != null ? '<tr><td>Expenses (ex GST)</td><td class="num"><b>' + money(r.expenses) + '</b></td></tr>' : '') +
+      (r.gstOn != null ? '<tr><td>GST collected (1A)</td><td class="num"><b>' + money(r.gstOn) + '</b></td></tr>' : '') +
+      (r.gstCr != null ? '<tr><td>GST credits (1B)</td><td class="num"><b>' + money(r.gstCr) + '</b></td></tr>' : '') +
+      (r.payg != null ? '<tr><td>PAYG instalment</td><td class="num"><b>' + money(r.payg) + '</b></td></tr>' : '') +
+      (r.categories && r.categories.length ? '<tr><td>Expense categories</td><td class="num">' + r.categories.length + ' found</td></tr>' : '') + '</tbody></table>';
+    var tq = P.target;
+    h += '<div class="row"><b>Put it into</b><select class="in w200" data-act="bizTarget" aria-label="Where to put the imported figures">' +
+      [0, 1, 2, 3].map(function (i) { return '<option value="q' + i + '"' + (tq === 'q' + i ? ' selected' : '') + '>' + RPE.fyLabel(+P.fy) + ' Q' + (i + 1) + ' (' + QN[i] + ')</option>'; }).join('') +
+      (r.kind === 'pl' ? '<option value="cats"' + (tq === 'cats' ? ' selected' : '') + '>' + RPE.fyLabel(+P.fy) + ' expense categories only (year to date)</option>' : '') + '</select>' +
+      (r.kind === 'pl' && tq !== 'cats' && r.categories && r.categories.length ? '<label class="row" style="gap:6px;font-size:14px"><input type="checkbox" data-act="bizCats"' + (P.withCats ? ' checked' : '') + ' style="width:18px;height:18px">Also replace the expense categories</label>' : '') +
+      '<button class="btn primary" data-act="bizApply">Apply</button></div>' +
+      (r.period && r.period.months > 3 && tq !== 'cats' ? '<div class="note">This report covers ' + r.period.months + ' months. For the quarterly table, export one quarter at a time – or put it into the expense categories only.</div>' : '') +
+      '<div class="hint">Nothing changes until you click Apply. Existing figures in that quarter are replaced; everything stays editable.</div></div>';
     return h;
   }
 
@@ -1626,6 +1896,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   /* ---------- actions ---------- */
   function migratePlan(plan) {
     var notes = [], startFY = RPE.fyOf(new Date());
+    if (!plan.business) plan.business = { owner: 'dale', basis: 'cash', period: 'quarterly', paygDefault: 5000, years: {} };
     (plan.incomes || []).forEach(function (i) {
       if (i.kind === 'work' && i.end) {
         var P = plan.people[i.owner];
@@ -1747,6 +2018,35 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       Files.download('Retirement forecast – ' + sc.name + (S.view === 'household' ? '' : ' – ' + pname(S.view)) + '.csv', lines.map(function (l) { return l.join(','); }).join('\r\n'), 'text/csv');
     },
     resetA: function () { if (confirm('Reset all assumptions to the built-in defaults? Your accounts, budget and income are not affected.')) { S.plan.assumptions = RP_DEFAULT_PLAN().assumptions; markDirty(); render(); } },
+    addCat: function (fy) { bizYear(fy).cats.push({ name: 'New category', amount: 0, gst: '' }); markDirty(); render(); },
+    delCat: function (id) { var q = id.split(':'), Y = bizYear(q[0]); if (confirm('Delete "' + (Y.cats[+q[1]] || {}).name + '"?')) { Y.cats.splice(+q[1], 1); markDirty(); render(); } },
+    bizImport: function () {
+      var inpEl = document.createElement('input'); inpEl.type = 'file'; inpEl.accept = '*/*';
+      inpEl.onchange = async function () {
+        var f = inpEl.files[0]; if (!f) return;
+        try {
+          var rows = await RPImport.readFile(f), res = RPImport.interpret(rows);
+          var fy = res.period ? res.period.fy : S.taxFY;
+          S.taxFY = fy; S.bizPreview = { name: f.name, res: res, fy: fy, target: res.period && res.period.quarter != null ? 'q' + res.period.quarter : (res.kind === 'pl' ? 'cats' : 'q0'), withCats: true };
+          render();
+        } catch (e) { alert('Could not read that file: ' + (e.message || e)); }
+      };
+      inpEl.click();
+    },
+    bizCancel: function () { S.bizPreview = null; render(); },
+    bizApply: function () {
+      var P = S.bizPreview, r = P.res, Y = bizYear(P.fy), n = function (v) { return v == null ? '' : Math.round(v * 100) / 100; };
+      if (P.target !== 'cats') {
+        var q = Y.q[+P.target.slice(1)];
+        if (r.sales != null) q.sales = n(r.sales);
+        if (r.expenses != null) q.exp = n(r.expenses);
+        if (r.gstOn != null) q.gstOn = n(r.gstOn);
+        if (r.gstCr != null) q.gstCr = n(r.gstCr);
+        if (r.payg != null) q.payg = n(r.payg);
+      }
+      if (r.kind === 'pl' && r.categories && r.categories.length && (P.target === 'cats' || P.withCats)) Y.cats = r.categories.map(function (c) { return { name: c.name, amount: n(c.amount), gst: '' }; });
+      S.bizPreview = null; markDirty(); render(); toast('Imported – check the figures, then Save.');
+    },
     useMult: function (id) { var a = S.plan.accounts.filter(function (x) { return x.id === id; })[0]; if (!a) return; a.multiple = +((+a.years) * (+a.perYear || 0.21)).toFixed(2); markDirty(); render(); toast('Multiple set to ' + a.multiple + (a.override ? ' – the benefit amount you entered still takes priority; clear it to use the formula.' : '')); },
     discard: function () { if (confirm('Discard your changes and go back to the saved plan?')) discardChanges(); },
     pwMe: function () { var p = readPw('me'); if (!p) return; pend(S.user === 'recovery' ? 'dale' : S.user, p); render(); toast('Password changed – press Save to apply it.'); },
@@ -1803,6 +2103,8 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
   app.addEventListener('change', function (e) {
     var t = e.target;
     if (t.dataset.act === 'lockMins') { S.lockMins = +t.value; return; }
+    if (t.dataset.act === 'bizTarget') { S.bizPreview.target = t.value; render(); return; }
+    if (t.dataset.act === 'bizCats') { S.bizPreview.withCats = t.checked; return; }
     if (t.dataset.act === 'devMode') {
       if (t.value === 'edit' && ENV.mobile && !confirm('This looks like a phone or tablet, which normally can\'t save into OneDrive. Allow editing anyway?')) { t.value = DEVICE_MODE; return; }
       if (S.dirty && !VIEW_ONLY && t.value === 'view' && !confirm('You have unsaved changes. Switch to view only anyway?')) { t.value = DEVICE_MODE; return; }
