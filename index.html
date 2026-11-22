@@ -156,10 +156,11 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.10.2';
+var RP_VERSION = '1.10.3';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-22';
 var RP_CHANGES = [
+  ['1.10.3', '2026-11-22', ['Budget: each person\'s card shows their retirement budget (share of the combined amount) and the surplus (green) or deficit (red) against their "In retirement" spending']],
   ['1.10.2', '2026-11-22', ['When Budget is set to use the "In retirement" column, the Dashboard spend card, scenario list and Forecast now show that amount (they used to show the unused combined amount)', 'A scenario with its own combined spend (e.g. "Spend $140k") now uses that amount even when the base plan uses the Budget column']],
   ['1.10.1', '2026-11-22', ['Help search fixed on phones and tablets (letters no longer repeat while typing)', 'Help: "How the numbers are worked out" and how "Spending to cover" is calculated']],
   ['1.10.0', '2026-11-22', ['Business section on Income & Tax: BAS quarters, GST, PAYG instalments, expense categories – all editable', 'Import from Zoho Books (Excel or CSV export of Profit and Loss or BAS report), with a preview', 'Net profit so far against your estimate, and the likely amount at tax time after PAYG']],
@@ -1048,6 +1049,7 @@ var RP_HELP = [
 <li><b>Move</b> an item to another category with the drop-down on the right; <b>delete</b> with the red bin (it asks first).</li>
 <li><b>One-off future costs:</b> cars, trips, renovations. Choose the financial year it happens in, the cost in today's dollars, and "repeat every" years (0 = once). Tick <b>Paid</b> once it's paid – your balances already reflect it, so it isn't counted again.</li>
 <li><b>In retirement, base spending on:</b> either one <b>combined yearly amount</b> (e.g. $120,000 split 50/50) or the <b>In retirement</b> column. Before each person retires, the <b>Now</b> amounts are used.</li>
+<li><b>Surplus or deficit:</b> each person's card compares their <b>In retirement</b> spending with their share of the combined retirement budget (e.g. $65,000 each of $130,000). <span style="color:var(--good)">Green ▲ Surplus</span> = you plan to spend less than your budget; <span style="color:var(--bad)">red ▼ Deficit</span> = more. The forecast uses whichever basis is chosen above – the budget amount, or the column. If you actually spend less than the budget, the unspent money stays in your balances and shows up when you update them on Savings &amp; Super.</li>
 </ul>`],
  ['tax', 'Income & Tax', `
 <ul>
@@ -1414,13 +1416,22 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     var p = S.plan, bt = C.bt, ws = whoList();
     var h = '<div class="head"><h1>Budget</h1><span class="sub">Type weekly, monthly or yearly – the others fill in</span><div class="ml row"><button class="btn primary" data-act="addExp" data-id="">+ Add expense</button></div></div>';
     h += '<div class="card"><div class="row"><b>In retirement, base spending on</b>' + sel('settings.spendMode', [['target', 'A combined yearly amount'], ['budget', 'The "In retirement" column below']], 'w200', { label: 'Retirement spending basis' }) +
-      (p.settings.spendMode === 'target' ? '<span>of</span>' + inp('settings.spendTarget', 'money', 'w110', { label: 'Combined retirement spend' }) + '<span class="sub">per year (today\'s $), split ' + Math.round(C.base.splitPct) + '/' + Math.round(100 - C.base.splitPct) + '. Before each person retires, the "Now" amounts below are used.</span>' : '<span class="sub">Each person\'s share of the "In retirement" column is used once they retire.</span>') + '</div></div>';
+      (p.settings.spendMode === 'target' ? '<span>of</span>' + inp('settings.spendTarget', 'money', 'w110', { label: 'Combined retirement spend' }) + '<span class="sub">per year (today\'s $), split ' + Math.round(C.base.splitPct) + '/' + Math.round(100 - C.base.splitPct) + '. Before each person retires, the "Now" amounts below are used.</span>' : '<span class="sub">Each person\'s share of the "In retirement" column is used once they retire. Retirement budget to compare against:</span>' + inp('settings.spendTarget', 'money', 'w110', { label: 'Retirement budget to compare against' }) + '<span class="sub">combined</span>') + '</div></div>';
     h += '<div class="grid">';
+    var allow = { dale: (+p.settings.spendTarget || 0) * C.base.splitPct / 100, sue: (+p.settings.spendTarget || 0) * (100 - C.base.splitPct) / 100 };
+    function vsAllow(spend, a, dark) {
+      if (!a) return '';
+      var d = a - spend, ok = d >= 0, col = dark ? (ok ? '#7EE2A8' : '#FFA19A') : (ok ? 'var(--good)' : 'var(--bad)');
+      return '<div style="border-top:1px solid ' + (dark ? 'rgba(255,255,255,.18)' : 'var(--line)') + ';margin-top:6px;padding-top:6px;display:flex;flex-direction:column;gap:2px">' +
+        '<div class="k-sub">Retirement budget (' + kM(+p.settings.spendTarget) + ' combined): <b>' + money(a) + '</b></div>' +
+        '<div style="font-weight:700;font-size:15px;color:' + col + '">' + (ok ? '▲ Surplus ' : '▼ Deficit ') + money(Math.abs(d)) + '/yr</div>' +
+        '<div class="k-sub">vs "In retirement" column. ' + (p.settings.spendMode !== 'target' ? 'Forecast uses the column, so the surplus stays in your balances.' : 'Forecast assumes the full budget is spent, so a surplus is extra buffer.') + '</div></div>';
+    }
     ['dale', 'sue'].forEach(function (w) {
       if (ws.indexOf(w) < 0) return;
-      h += '<div class="card" style="gap:4px"><div class="k-lab">' + esc(pname(w)) + ' – now (incl. share of shared)</div><div class="k-val ' + w + '">' + money(bt[w].now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt[w].ret) + ' · ' + money(bt[w].now / 52, 0) + '/wk</div></div>';
+      h += '<div class="card" style="gap:4px"><div class="k-lab">' + esc(pname(w)) + ' – now (incl. share of shared)</div><div class="k-val ' + w + '">' + money(bt[w].now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt[w].ret) + ' · ' + money(bt[w].now / 52, 0) + '/wk</div>' + vsAllow(bt[w].ret, allow[w]) + '</div>';
     });
-    if (S.view === 'household') h += '<div class="card dark" style="gap:4px"><div class="k-lab">Household – now</div><div class="k-val">' + money(bt.dale.now + bt.sue.now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt.dale.ret + bt.sue.ret) + '</div></div>';
+    if (S.view === 'household') h += '<div class="card dark" style="gap:4px"><div class="k-lab">Household – now</div><div class="k-val">' + money(bt.dale.now + bt.sue.now) + '<span class="k-sub"> /yr</span></div><div class="k-sub">In retirement column: ' + money(bt.dale.ret + bt.sue.ret) + '</div>' + vsAllow(bt.dale.ret + bt.sue.ret, allow.dale + allow.sue, true) + '</div>';
     h += '</div>';
     var cats = [];
     p.expenses.forEach(function (e) { if (cats.indexOf(e.cat) < 0) cats.push(e.cat); });
