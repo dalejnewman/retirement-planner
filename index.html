@@ -154,7 +154,7 @@ details.help:not([open]){gap:0;padding-top:14px;padding-bottom:14px}
 tr.tap{cursor:pointer}tr.tap:hover td{background:#F7F9FB}tr.tap.on td{background:#EEF3FD}.caret{display:inline-block;width:12px;color:var(--muted);font-size:12px}
 tr.xrow>td{background:#F7F9FB;padding:12px 14px!important;white-space:normal}
 .xpair{display:flex;flex-direction:column;gap:14px}
-tr.xrow>td>.xbox,tr.xrow>td>.xpair{position:sticky;left:14px;width:min(980px,calc(100vw - 340px))}
+tr.xrow>td>.xbox,tr.xrow>td>.xpair{position:sticky;left:14px;width:min(1200px,calc(100vw - 330px))}
 .xpair>.xbox{max-width:none}
 .xbox{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:980px}
 .xsum{font-size:14px;margin-bottom:10px;color:var(--ink)}
@@ -165,16 +165,22 @@ table.xtab td.num{text-align:right;padding-left:12px!important}table.xtab tr.xt 
 .xn{font-size:12px;color:var(--muted);font-weight:400;max-width:360px}
 @media (max-width:900px){.xcols{grid-template-columns:1fr}tr.xrow>td>.xbox,tr.xrow>td>.xpair{width:calc(100vw - 300px)}}
 @media (max-width:760px){tr.xrow>td>.xbox,tr.xrow>td>.xpair{width:calc(100vw - 60px)}}
+
+.xfund{max-width:620px;margin:4px 0 14px}
+.xmix{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:13px;color:var(--muted)}
+.xmix span{display:flex;align-items:center;gap:8px}
+.xmix i{display:inline-block;height:8px;border-radius:4px;max-width:60%}
 </style>
 </head>
 <body>
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.11.1';
+var RP_VERSION = '1.12.0';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-22';
 var RP_CHANGES = [
+  ['1.12.0', '2026-11-25', ['Forecast: the Year by year table now uses the full width of the screen', 'Tapping a year now starts with "How the spending was paid for" – how much came from income, from super and from cash savings, with the share of each']],
   ['1.11.1', '2026-11-22', ['The business section on Income & Tax is only shown to the business owner (and the admin) – hidden when the other partner signs in']],
   ['1.11.0', '2026-11-22', ['Forecast: tap any year in the Year by year table for a plain-English breakdown – cash at the start, each amount in and out, left over, and super at the start and end – for one person or both']],
   ['1.10.5', '2026-11-22', ['Forecast year-by-year for each person: minimum super drawdown, "Left over" (added to or taken from cash) and "Extra from super" shown separately, with an explanation of the order']],
@@ -1760,9 +1766,23 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     var sum = R.net >= 0 ? esc(nm) + '\'s income covered spending and tax, with ' + m(R.net) + ' left over added to savings.' :
       (R.extraSuper > 1 ? 'Savings ran out, so ' + m(R.extraSuper) + ' extra came out of super on top of the minimum.' :
         'Spending and tax were ' + m(-R.net) + ' more than income, so savings covered the gap' + (recv > 1 ? ' with a top-up from ' + esc(pname(ot)) : '') + '. Super only paid the minimum.');
+    var outT = (R.taxPaid || 0) + (R.spend || 0) + (R.oneOff || 0) + (R.concessional || 0);
+    var shortfall = Math.max(0, -R.net), fromCash = Math.max(0, shortfall - (R.extraSuper || 0) - (R.sold || 0) - recv);
+    var incomeIn = (I.work || 0) + (I.other || 0) + (I.taxFree || 0) + (I.interest || 0) + (I.dividends || 0) + (I.agePension || 0);
+    var superUsed = (R.minDraw || 0) + (R.extraSuper || 0);
+    var fund = outT >= 1 ? '<div class="xh">How the ' + m(R.spend + (R.oneOff || 0)) + ' spending' + (R.taxPaid >= 1 ? ' and ' + m(R.taxPaid) + ' tax' : '') + ' was paid for</div><table class="xtab">' +
+      line('Income', incomeIn, ['work', 'other', 'interest', 'dividends', 'agePension'].filter(function (k) { return (k === 'other' ? (I.other || 0) + (I.taxFree || 0) : I[k] || 0) >= 1; }).map(function (k) { return { work: 'work', other: 'other income', interest: 'interest', dividends: 'dividends', agePension: 'Age Pension' }[k]; }).join(', '), '') +
+      line('From super', superUsed, R.extraSuper >= 1 ? m(R.minDraw) + ' minimum + ' + m(R.extraSuper) + ' extra' : (R.minDraw >= 1 ? 'the minimum drawdown only' : ''), '') +
+      line('From cash savings', fromCash, 'Taken out of savings to make up the difference', '', false) +
+      line('Shares or other assets sold', R.sold, '', '') +
+      line('Top-up from ' + esc(pname(ot)), recv, '', '') +
+      (R.net >= 1 ? line('Less: left over, saved to cash', R.net, 'Income was more than needed', '-') : '') +
+      line('Total paid out', outT, (R.concessional >= 1 ? 'Includes ' + m(R.concessional) + ' super contributions' : 'Spending' + (R.oneOff >= 1 ? ', one-offs' : '') + (R.taxPaid >= 1 ? ' and tax' : '')), '', true) +
+      '</table>' +
+      (outT >= 1 ? '<div class="xmix">' + [['Income', Math.min(incomeIn, outT), 'var(--muted)'], ['Super', superUsed, '#2F7F6F'], ['Cash savings', fromCash, '#B7791F'], ['Other', (R.sold || 0) + recv, '#A0A8B2']].filter(function (x) { return x[1] >= 1; }).map(function (x) { var pc = Math.round(x[1] / outT * 100); return '<span><i style="background:' + x[2] + ';width:' + Math.max(2, pc) + '%"></i>' + x[0] + ' ' + pc + '%</span>'; }).join('') + '</div>' : '') : '';
     var ev = r.events.filter(function (e) { return e.who === w || e.who === 'both'; }).map(function (e) { return e.text; });
     return '<div class="xbox"><div style="margin-bottom:6px">' + head + '</div><div class="xsum">' + sum + (ev.length ? ' <span class="sub">' + esc(ev.join('; ')) + '</span>' : '') + '</div>' +
-      '<div class="xcols"><div><div class="xh">Cash and savings</div>' + cash + '</div><div><div class="xh">Super</div>' + sup + '</div></div></div>';
+      (fund ? '<div class="xfund">' + fund + '</div>' : '') + '<div class="xcols"><div><div class="xh">Cash and savings</div>' + cash + '</div><div><div class="xh">Super</div>' + sup + '</div></div></div>';
   }
   function vForecast() {
     var p = S.plan;
@@ -1850,15 +1870,16 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
     h += '<section class="card"><div class="row"><h2>' + (isH ? 'Combined balances' : esc(pname(V)) + "'s balance") + ' – ' + esc(sc.name) + '</h2><span class="sub ml">Future dollars · hover a bar for details</span></div><div class="chart" id="chart">' + chartSVG(r0) + '</div></section>';
     var shown = r0.rows.filter(function (r) { return r.p.dale.age <= p.assumptions.planToAge + 2; });
     function evs(r, w) { return esc(r.events.filter(function (e) { return !w || e.who === w || e.who === 'both'; }).map(function (e) { return e.text; }).join('; ')); }
+    var yby = '';
     if (isH) {
-      h += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – combined – ' + esc(sc.name) + '</b> <span class="sub">future dollars · tap a year for a plain-English breakdown</span></div><table><thead><tr><th>FY</th><th class="num">Ages</th><th class="num">Spend</th><th class="num dale">' + esc(pname('dale')) + ' spend</th><th class="num sue">' + esc(pname('sue')) + ' spend</th><th class="num">Tax</th><th class="num">Age Pension</th><th class="num dale">' + esc(pname('dale')) + ' balance</th><th class="num sue">' + esc(pname('sue')) + ' balance</th><th class="num">Household</th><th>Events</th></tr></thead><tbody>' +
+      yby += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – combined – ' + esc(sc.name) + '</b> <span class="sub">future dollars · tap a year for a plain-English breakdown</span></div><table><thead><tr><th>FY</th><th class="num">Ages</th><th class="num">Spend</th><th class="num dale">' + esc(pname('dale')) + ' spend</th><th class="num sue">' + esc(pname('sue')) + ' spend</th><th class="num">Tax</th><th class="num">Age Pension</th><th class="num dale">' + esc(pname('dale')) + ' balance</th><th class="num sue">' + esc(pname('sue')) + ' balance</th><th class="num">Household</th><th>Events</th></tr></thead><tbody>' +
         shown.map(function (r) {
           var D = r.p.dale, U = r.p.sue;
           return '<tr data-act="rowx" data-id="' + r.fy + '" class="tap' + (S.rowx === r.fy ? ' on' : '') + '"' + (r.deficit > 1 ? ' style="background:#FDECEA"' : '') + '><td class="nw"><span class="caret">' + (S.rowx === r.fy ? '▾' : '▸') + '</span> <b>' + r.label + '</b></td><td class="num nw">' + D.age + ' / ' + U.age + '</td><td class="num">' + kM(D.spend + U.spend + D.oneOff + U.oneOff) + '</td><td class="num">' + kM(D.spend + D.oneOff) + '</td><td class="num">' + kM(U.spend + U.oneOff) + '</td><td class="num">' + kM(D.taxPaid + U.taxPaid) + '</td><td class="num">' + (r.agePension ? kM(r.agePension) : '–') + '</td><td class="num">' + kM(D.total) + '</td><td class="num">' + kM(U.total) + '</td><td class="num"><b>' + kM(r.total) + '</b></td><td class="sub ev">' + evs(r) + (r.transfers.length ? esc(' · top-up ' + r.transfers.map(function (t) { return pname(t.from) + '→' + pname(t.to) + ' ' + kM(t.amount); }).join(', ')) : '') + '</td></tr>' +
             (S.rowx === r.fy ? '<tr class="xrow"><td colspan="11"><div class="xpair">' + explainYear(r, 'dale') + explainYear(r, 'sue') + '</div></td></tr>' : '');
         }).join('') + '</tbody></table></div>';
     } else {
-      h += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – ' + esc(pname(V)) + ' – ' + esc(sc.name) + '</b> <span class="sub">future dollars · tap a year for a plain-English breakdown</span></div><div class="sub" style="padding:0 14px 8px;max-width:980px">How each year works: income comes in (work, other income, interest, the <b>minimum super drawdown</b> – compulsory once super is in pension phase – and any Age Pension), then tax and spending go out. <b>Left over</b> is what is added to cash (green) or taken from cash (red). Super is only drawn <i>above the minimum</i> if cash runs out – that is <b>Extra from super</b>. Closing cash = last year\'s cash + left over + extra from super + top-ups.</div><table><thead><tr><th>FY</th><th class="num">Age</th><th class="num">Work income</th><th class="num">Other income</th><th class="num">Interest &amp; dividends</th><th class="num">Min super drawdown</th><th class="num">Age Pension</th><th class="num">Tax</th><th class="num">Spending</th><th class="num">Left over</th><th class="num">Extra from super</th><th class="num">Cash</th><th class="num">Super</th><th class="num">Other</th><th class="num">Total</th><th class="num">Top-ups</th><th>Events</th></tr></thead><tbody>' +
+      yby += '<div class="tw"><div style="padding:12px 14px 4px"><b>Year by year – ' + esc(pname(V)) + ' – ' + esc(sc.name) + '</b> <span class="sub">future dollars · tap a year for a plain-English breakdown</span></div><div class="sub" style="padding:0 14px 8px;max-width:980px">How each year works: income comes in (work, other income, interest, the <b>minimum super drawdown</b> – compulsory once super is in pension phase – and any Age Pension), then tax and spending go out. <b>Left over</b> is what is added to cash (green) or taken from cash (red). Super is only drawn <i>above the minimum</i> if cash runs out – that is <b>Extra from super</b>. Closing cash = last year\'s cash + left over + extra from super + top-ups.</div><table><thead><tr><th>FY</th><th class="num">Age</th><th class="num">Work income</th><th class="num">Other income</th><th class="num">Interest &amp; dividends</th><th class="num">Min super drawdown</th><th class="num">Age Pension</th><th class="num">Tax</th><th class="num">Spending</th><th class="num">Left over</th><th class="num">Extra from super</th><th class="num">Cash</th><th class="num">Super</th><th class="num">Other</th><th class="num">Total</th><th class="num">Top-ups</th><th>Events</th></tr></thead><tbody>' +
         shown.map(function (r) {
           var R = r.p[V], B = R.bal, I = R.income;
           var tu = r.transfers.reduce(function (a, t) { return a + (t.to === V ? t.amount : t.from === V ? -t.amount : 0); }, 0);
@@ -1866,6 +1887,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
         }).join('') + '</tbody></table></div><div class="sub">Top-ups (pooled only): + received from ' + esc(pname(V === 'dale' ? 'sue' : 'dale')) + ', − given. Red rows: ' + esc(pname(V)) + "'s money has run out.</div>";
     }
     h += '</div></div>';
+    h += '<div style="margin-top:16px">' + yby + '</div>';
     return h;
   }
 
