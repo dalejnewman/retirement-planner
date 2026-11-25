@@ -170,16 +170,18 @@ table.xtab td.num{text-align:right;padding-left:12px!important}table.xtab tr.xt 
 .xmix{display:flex;flex-direction:column;gap:3px;margin-top:8px;font-size:13px;color:var(--muted)}
 .xmix span{display:flex;align-items:center;gap:8px}
 .xmix i{display:inline-block;height:8px;border-radius:4px;max-width:60%}
+.bonusrow{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-top:1px solid var(--line2)}
 </style>
 </head>
 <body>
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.12.0';
+var RP_VERSION = '1.12.1';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-22';
 var RP_CHANGES = [
+  ['1.12.1', '2026-11-25', ['Savings & Super: tick a cash account as bonus interest (e.g. Goal Saver) – in years money is taken out, the month(s) of withdrawals earn only the base rate']],
   ['1.12.0', '2026-11-25', ['Forecast: the Year by year table now uses the full width of the screen', 'Tapping a year now starts with "How the spending was paid for" – how much came from income, from super and from cash savings, with the share of each']],
   ['1.11.1', '2026-11-22', ['The business section on Income & Tax is only shown to the business owner (and the admin) – hidden when the other partner signs in']],
   ['1.11.0', '2026-11-22', ['Forecast: tap any year in the Year by year table for a plain-English breakdown – cash at the start, each amount in and out, left over, and super at the start and end – for one person or both']],
@@ -365,14 +367,15 @@ var RPE = (function () {
 
     // opening balances
     var S = {};
-    who.forEach(function (w) { S[w] = { cashW: 0, cashV: 0, supW: 0, supV: 0, cash: 0, accum: 0, pension: 0, shares: 0, crypto: 0, feesAccum: 0, cryptoRate: 0, inPension: false, depleted: null }; });
+    who.forEach(function (w) { S[w] = { cashW: 0, cashV: 0, lossW: 0, supW: 0, supV: 0, cash: 0, accum: 0, pension: 0, shares: 0, crypto: 0, feesAccum: 0, cryptoRate: 0, inPension: false, depleted: null }; });
     var dbs = [];
     plan.accounts.forEach(function (a) {
       var owners = a.owner === 'joint' ? (a.include ? [['dale', 0.5], ['sue', 0.5]] : []) : [[a.owner, 1]];
       owners.forEach(function (o) {
         var s = S[o[0]], v = (+a.balance || 0) * o[1];
         var ownRet = a.ret != null && a.ret !== '' ? +a.ret : A.superReturn;
-        if (a.type === 'cash') { s.cashW += v * (a.rate != null && a.rate !== '' ? +a.rate : A.cashRate); s.cashV += v; s.cash += v; }
+        if (a.type === 'cash') { var ar = a.rate != null && a.rate !== '' ? +a.rate : A.cashRate; s.cashW += v * ar; s.cashV += v; s.cash += v;
+          if (a.bonus) s.lossW += v * Math.max(0, ar - (+a.baseRate || 0)) * Math.min(12, Math.max(0, a.drawMonths == null || a.drawMonths === '' ? 1 : +a.drawMonths)) / 12; }
         else if (a.type === 'super') { s.accum += v; s.feesAccum += (+a.fees || 0) * o[1]; s.supW += v * ownRet; s.supV += v; }
         else if (a.type === 'pension') { s.pension += v; s.feesAccum += (+a.fees || 0) * o[1]; s.supW += v * ownRet; s.supV += v; }
         else if (a.type === 'shares') s.shares += v;
@@ -384,7 +387,8 @@ var RPE = (function () {
     // each person's interest rate = the balance-weighted rate of their own cash accounts (every year); super return likewise
     who.forEach(function (w) { var s = S[w];
       s.cashRate = E.cashOverride || !s.cashV ? A.cashRate : s.cashW / s.cashV;
-      s.superRate = E.superOverride || !s.supV ? A.superReturn : s.supW / s.supV; });
+      s.superRate = E.superOverride || !s.supV ? A.superReturn : s.supW / s.supV;
+      s.cashLoss = s.cashV ? s.lossW / s.cashV : 0; }); // bonus interest lost in a year money is taken out
     var rows = [];
     var lasts = { dale: null, sue: null, household: null };
     var lastRet = retire.dale && retire.sue ? (retire.dale > retire.sue ? retire.dale : retire.sue) : (retire.dale || retire.sue);
@@ -519,6 +523,15 @@ var RPE = (function () {
         });
         var ap = elig.indexOf(w) >= 0 ? row.agePension / elig.length : 0;
         var net = work + otherTax + taxFree + interest + div + draw + ap - tax - spend - oneOff - cc;
+        R.bonusLost = 0;
+        if (net < 0 && s.cashLoss > 0 && interest > 0) {
+          // bonus-interest savings account: no bonus in the month(s) more is taken out than goes in
+          var lost = Math.min(interest, Math.max(0, s.cash) * s.cashLoss * f);
+          interest -= lost; R.bonusLost = lost;
+          items.forEach(function (it) { if (it.kind === 'interest') it.amount = interest; });
+          taxable = work + otherTax + interest + div + frank - cc; T = incomeTax(taxable, fy, A); tax = Math.max(0, T.total) - frank;
+          net = work + otherTax + taxFree + interest + div + draw + ap - tax - spend - oneOff - cc;
+        }
         s.cash += net;
         // cover shortfall from own assets
         var extra = 0;
@@ -1095,6 +1108,7 @@ var RP_HELP = [
 </ul>`],
  ['savings', 'Savings & Super', `
 <ul>
+<li><b>Bonus interest accounts</b> (e.g. a Goal Saver): tick the box under the account. Then set the rate you get without the bonus (often close to 0%) and how many months a year you take money out (1 if you take one lump sum). In a year the forecast takes money out of savings, those months earn only the base rate – e.g. 11 months at 5% + 1 month at 0% = 4.58%. Years you only add to savings earn the full rate.</li>
 <li><b>+ Add account</b> under {P1}, {P2} or Joint. Choose the type: Cash, Super – accumulation, Super – pension, Shares, Crypto or Defined benefit.</li>
 <li>Update <b>balances</b> every few months, then press <b>Record today's balances</b> to add a dated row to the history.</li>
 <li><b>Interest / return %:</b> each cash account's interest rate (e.g. 5.25% goal saver) is used every year. Super accounts can have their own return; leave it blank to use the <b>Super return</b> on Assumptions (e.g. 4%).</li>
@@ -1671,6 +1685,12 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
             (w === 'joint' ? '<td><input type="checkbox" data-bind="' + b + 'include" data-type="bool" ' + (a.include ? 'checked' : '') + ' aria-label="Include in forecast" style="width:18px;height:18px"></td>' : '') +
             '<td>' + delBtn('delAcc', a.id, 'Delete account') + '</td></tr>';
         }).join('') + '</tbody></table></div>';
+      list.filter(function (a) { return a.type === 'cash'; }).forEach(function (a) {
+        var b = 'accounts:' + a.id + ':', r = a.rate != null && a.rate !== '' ? +a.rate : S.plan.assumptions.cashRate, base = +a.baseRate || 0, mo = Math.min(12, Math.max(0, a.drawMonths == null || a.drawMonths === '' ? 1 : +a.drawMonths));
+        h += '<div class="bonusrow"><label class="row" style="gap:8px;flex-wrap:nowrap;font-size:14px"><input type="checkbox" data-bind="' + b + 'bonus" data-type="bool" ' + (a.bonus ? 'checked' : '') + ' style="width:18px;height:18px" aria-label="Bonus interest account"><b>' + esc(a.name || 'Cash') + '</b>&nbsp;pays bonus interest only in months the balance grows (e.g. Goal Saver)</label>' +
+          (a.bonus ? '<span class="row" style="gap:6px;flex-wrap:wrap;font-size:14px">Rate without bonus ' + inp(b + 'baseRate', 'pct', 'w70', { label: 'Rate without bonus %', ph: '0' }) + '% · months a year we take money out ' + inp(b + 'drawMonths', 'num', 'w70', { label: 'Months a year money is taken out', ph: '1' }) +
+            '<span class="hint">In a year money comes out of it: ' + (12 - mo) + ' months at ' + pct(r, 2) + ' + ' + mo + ' at ' + pct(base, 2) + ' = ' + pct((r * (12 - mo) + base * mo) / 12, 2) + ' a year. Years you only add to it earn the full ' + pct(r, 2) + '.</span></span>' : '') + '</div>';
+      });
       list.filter(function (a) { return a.type === 'db'; }).forEach(function (a) {
         var b = 'accounts:' + a.id + ':', calc = (+a.multiple || 0) * (+a.finalSalary || 0);
         h += '<div class="card" style="background:var(--bg);border:0"><h3>' + esc(a.name) + ' – defined benefit</h3><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
@@ -1737,7 +1757,7 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       line(esc(R.dbName || 'Defined benefit') + ' paid to cash', R.dbCash, '', '+') +
       line('Work income', I.work, R.retired && R.workFrac > 0.005 ? 'Salary up to the retirement date' : '', '+') +
       line('Other income', (I.other || 0) + (I.taxFree || 0), '', '+') +
-      line('Interest', I.interest, 'Cash of ' + m(Math.max(0, O.cash || 0)) + ' at ' + pct(R.cashRate || 0, 2) + (part ? ' for part of the year' : ''), '+') +
+      line('Interest', I.interest, 'Cash of ' + m(Math.max(0, O.cash || 0)) + ' at ' + pct(R.cashRate || 0, 2) + (part ? ' for part of the year' : '') + (R.bonusLost >= 1 ? ', less ' + m(R.bonusLost) + ' bonus interest missed in the month(s) money was taken out' : ''), '+') +
       line('Dividends', I.dividends, '', '+') +
       line('Minimum super drawdown', R.minDraw, (R.minRate ? Math.round(R.minRate * 100) + '% of super – the legal minimum once super is a pension. Tax-free from 60.' : ''), '+') +
       line('Age Pension', I.agePension, '', '+') +
