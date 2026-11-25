@@ -177,10 +177,11 @@ table.xtab td.num{text-align:right;padding-left:12px!important}table.xtab tr.xt 
 <div id="app"><div class="nojs" id="nojs"><b>The planner isn't running.</b>You're probably seeing a preview (for example in the OneDrive app or the iPhone Files app), which doesn't run apps. Open this file in a web browser instead – Microsoft Edge or Google Chrome on a computer works best. See the Help guide for phone tips.</div></div>
 <noscript>Please open this file in Microsoft Edge or Google Chrome with JavaScript enabled.</noscript>
 <script>/* App version and change history – bump RP_VERSION with every release */
-var RP_VERSION = '1.12.1';
+var RP_VERSION = '1.12.2';
 var RP_WEB_URL = 'https://dalejnewman.github.io/retirement-planner/'; /* set when the planner is hosted, e.g. https://name.github.io/retirement-planner/ */
 var RP_RELEASED = '2026-11-22';
 var RP_CHANGES = [
+  ['1.12.2', '2026-11-25', ['Tap a year: "How the spending was paid for" now shows super and the full amount taken out of cash savings (interest is shown in the cash table instead)']],
   ['1.12.1', '2026-11-25', ['Savings & Super: tick a cash account as bonus interest (e.g. Goal Saver) – in years money is taken out, the month(s) of withdrawals earn only the base rate']],
   ['1.12.0', '2026-11-25', ['Forecast: the Year by year table now uses the full width of the screen', 'Tapping a year now starts with "How the spending was paid for" – how much came from income, from super and from cash savings, with the share of each']],
   ['1.11.1', '2026-11-22', ['The business section on Income & Tax is only shown to the business owner (and the admin) – hidden when the other partner signs in']],
@@ -1783,23 +1784,28 @@ if (typeof module !== 'undefined') module.exports = RP_HELP;
       line('Extra paid to cash', R.extraSuper, '', '-') +
       line('Top-up given to ' + esc(pname(ot)), gaveSuper, '', '-') +
       line('Super at the end', sc, '', '', true) + '</table>' : '<div class="sub">No super.</div>';
-    var sum = R.net >= 0 ? esc(nm) + '\'s income covered spending and tax, with ' + m(R.net) + ' left over added to savings.' :
-      (R.extraSuper > 1 ? 'Savings ran out, so ' + m(R.extraSuper) + ' extra came out of super on top of the minimum.' :
-        'Spending and tax were ' + m(-R.net) + ' more than income, so savings covered the gap' + (recv > 1 ? ' with a top-up from ' + esc(pname(ot)) : '') + '. Super only paid the minimum.');
     var outT = (R.taxPaid || 0) + (R.spend || 0) + (R.oneOff || 0) + (R.concessional || 0);
-    var shortfall = Math.max(0, -R.net), fromCash = Math.max(0, shortfall - (R.extraSuper || 0) - (R.sold || 0) - recv);
-    var incomeIn = (I.work || 0) + (I.other || 0) + (I.taxFree || 0) + (I.interest || 0) + (I.dividends || 0) + (I.agePension || 0);
+    // interest is earned inside the savings account, so it is not shown as a separate source here:
+    // cash out = what is needed after super and any other income
+    var nonCash = (I.work || 0) + (I.other || 0) + (I.taxFree || 0) + (I.dividends || 0) + (I.agePension || 0);
     var superUsed = (R.minDraw || 0) + (R.extraSuper || 0);
+    var cashOut = outT - superUsed - nonCash - (R.sold || 0) - recv, spare = 0;
+    if (cashOut < 0) { spare = -cashOut; cashOut = 0; }
+    var ncNote = [['work', I.work], ['other income', (I.other || 0) + (I.taxFree || 0)], ['dividends', I.dividends], ['Age Pension', I.agePension]].filter(function (x) { return (x[1] || 0) >= 1; }).map(function (x) { return x[0]; }).join(', ');
     var fund = outT >= 1 ? '<div class="xh">How the ' + m(R.spend + (R.oneOff || 0)) + ' spending' + (R.taxPaid >= 1 ? ' and ' + m(R.taxPaid) + ' tax' : '') + ' was paid for</div><table class="xtab">' +
-      line('Income', incomeIn, ['work', 'other', 'interest', 'dividends', 'agePension'].filter(function (k) { return (k === 'other' ? (I.other || 0) + (I.taxFree || 0) : I[k] || 0) >= 1; }).map(function (k) { return { work: 'work', other: 'other income', interest: 'interest', dividends: 'dividends', agePension: 'Age Pension' }[k]; }).join(', '), '') +
-      line('From super', superUsed, R.extraSuper >= 1 ? m(R.minDraw) + ' minimum + ' + m(R.extraSuper) + ' extra' : (R.minDraw >= 1 ? 'the minimum drawdown only' : ''), '') +
-      line('From cash savings', fromCash, 'Taken out of savings to make up the difference', '', false) +
+      line('From super', superUsed, R.extraSuper >= 1 ? m(R.minDraw) + ' minimum + ' + m(R.extraSuper) + ' extra' : (R.minDraw >= 1 ? (R.minRate ? Math.round(R.minRate * 100) + '% minimum drawdown' : 'minimum drawdown') : ''), '') +
+      line('Income', nonCash, ncNote, '') +
       line('Shares or other assets sold', R.sold, '', '') +
       line('Top-up from ' + esc(pname(ot)), recv, '', '') +
-      (R.net >= 1 ? line('Less: left over, saved to cash', R.net, 'Income was more than needed', '-') : '') +
+      line('<b>Taken out of cash savings</b>', cashOut, 'The amount to withdraw from savings this year', '', false) +
+      (spare >= 1 ? line('Not needed – stays in savings', spare, (superUsed >= 1 ? 'Super' : 'Income') + ' was more than the spending', '-') : '') +
       line('Total paid out', outT, (R.concessional >= 1 ? 'Includes ' + m(R.concessional) + ' super contributions' : 'Spending' + (R.oneOff >= 1 ? ', one-offs' : '') + (R.taxPaid >= 1 ? ' and tax' : '')), '', true) +
       '</table>' +
-      (outT >= 1 ? '<div class="xmix">' + [['Income', Math.min(incomeIn, outT), 'var(--muted)'], ['Super', superUsed, '#2F7F6F'], ['Cash savings', fromCash, '#B7791F'], ['Other', (R.sold || 0) + recv, '#A0A8B2']].filter(function (x) { return x[1] >= 1; }).map(function (x) { var pc = Math.round(x[1] / outT * 100); return '<span><i style="background:' + x[2] + ';width:' + Math.max(2, pc) + '%"></i>' + x[0] + ' ' + pc + '%</span>'; }).join('') + '</div>' : '') : '';
+      '<div class="xmix">' + [['Super', superUsed, '#2F7F6F'], ['Income', nonCash, '#5B6672'], ['Cash savings', cashOut, '#B7791F'], ['Other', (R.sold || 0) + recv, '#A0A8B2']].filter(function (x) { return x[1] >= 1; }).map(function (x) { var pc = Math.round(x[1] / (outT + spare) * 100); return '<span><i style="background:' + x[2] + ';width:' + Math.max(2, pc) + '%"></i>' + x[0] + ' ' + pc + '%</span>'; }).join('') + '</div>' +
+      (I.interest >= 1 ? '<div class="xn" style="margin-top:6px">Interest earned on savings (' + m(I.interest) + ') is in the Cash and savings table below.</div>' : '') : '';
+    var sum = R.net >= 0 ? esc(nm) + '\'s income covered spending and tax, with ' + m(R.net) + ' left over added to savings.' :
+      (R.extraSuper > 1 ? 'Savings ran out, so ' + m(R.extraSuper) + ' extra came out of super on top of the minimum.' :
+        m(superUsed) + ' came from super (the minimum only) and ' + m(cashOut) + ' was taken out of cash savings' + (recv > 1 ? ', with a top-up from ' + esc(pname(ot)) : '') + '.' + (I.interest >= 1 ? ' After ' + m(I.interest) + ' interest, savings went down by ' + m(-R.net) + '.' : ''));
     var ev = r.events.filter(function (e) { return e.who === w || e.who === 'both'; }).map(function (e) { return e.text; });
     return '<div class="xbox"><div style="margin-bottom:6px">' + head + '</div><div class="xsum">' + sum + (ev.length ? ' <span class="sub">' + esc(ev.join('; ')) + '</span>' : '') + '</div>' +
       (fund ? '<div class="xfund">' + fund + '</div>' : '') + '<div class="xcols"><div><div class="xh">Cash and savings</div>' + cash + '</div><div><div class="xh">Super</div>' + sup + '</div></div></div>';
